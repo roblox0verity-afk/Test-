@@ -1,465 +1,803 @@
--- VAREWARE AIMLOCK | WALL CHECK FULLY RESTORED | KEY: PAPAKAINE
+-- ==============================================
+-- FIXED: PART SELECTION | 360° AIMLOCK ADDED
+-- MOVED PART SELECTOR TO TAB 2 | NO MORE HEAD OVERRIDE
+-- ==============================================
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
-local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
 local SoundService = game:GetService("SoundService")
 local Workspace = game:GetService("Workspace")
-local Camera = Workspace.CurrentCamera
-local CoreGui = game:GetService("CoreGui")
-local RaycastParams = RaycastParams.new()
-
+local Math = math
 local LocalPlayer = Players.LocalPlayer
-local Character, Humanoid, HumanoidRootPart, PlayerGui
-local function UpdateChar()
-    Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-    Humanoid = Character:WaitForChild("Humanoid")
-    HumanoidRootPart = Character:WaitForChild("HumanoidRootPart")
-    PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+local Camera = Workspace.CurrentCamera
+
+-- THEME
+local C = {
+    MainGreen = Color3.fromHex("#39FF14"),
+    DarkBG = Color3.fromHex("#050706"),
+    SideBG = Color3.fromHex("#101512"),
+    ToggleOffBg = Color3.fromHex("#222222"),
+    ToggleOffKnob = Color3.fromHex("#999999"),
+    InputBg = Color3.fromHex("#181C1A"),
+    White = Color3.new(1,1,1),
+    Red = Color3.fromHex("#FF3333")
+}
+
+-- SOUNDS
+local Sounds = {
+    ToggleGUI = "rbxassetid://97904400516560",
+    TabSwitch = "rbxassetid://117570443671176",
+    Click = "rbxassetid://97904400516560"
+}
+local function PlaySound(Id)
+    local S = Instance.new("Sound")
+    S.SoundId = Id
+    S.Volume = 0.35
+    S.Parent = SoundService
+    S:Play()
+    task.delay(S.TimeLength, function() S:Destroy() end)
 end
-UpdateChar()
-LocalPlayer.CharacterAdded:Connect(UpdateChar)
 
-local C = { WHITE = Color3.new(1,1,1), BLACK = Color3.new(0,0,0), GREY = Color3.new(0.3,0.3,0.3) }
-local OPACITY_70 = 0.7
-local UNLOCK_KEY = "PAPAKAINE"
-local Unlocked = false
+-- ANIMATIONS
+local Anim = {
+    Slow = TweenInfo.new(6, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true),
+    Normal = TweenInfo.new(0.35, Enum.EasingStyle.Sine, Enum.EasingDirection.Out),
+    Fast = TweenInfo.new(0.18, Enum.EasingStyle.Quad),
+    Open = TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out, 0.9),
+    Close = TweenInfo.new(0.3, Enum.EasingStyle.Quad)
+}
 
-local SOUND_TAB = "rbxassetid://132570658772029"
-local SOUND_BTN = "rbxassetid://101795118548847"
-local SOUND_MIN = "rbxassetid://136029417452204"
-local SOUND_CLOSE = "rbxassetid://137274429017619"
-local SOUND_LOOP = "rbxassetid://140511755680557"
+-- FOV CIRCLE
+local FOVCircle = Drawing.new("Circle")
+FOVCircle.Radius = 220
+FOVCircle.Thickness = 2
+FOVCircle.Color = C.MainGreen
+FOVCircle.Transparency = 0.5
+FOVCircle.Filled = false
+FOVCircle.Visible = false
 
-local function PlaySound(id, vol)
-    local s = Instance.new("Sound", SoundService)
-    s.SoundId = id; s.Volume = vol or 0.5; s:Play()
-    game.Debris:AddItem(s, 2)
-end
+-- GLOBAL SETTINGS
+_G = setmetatable({}, {__index = _G})
+_G.AimlockEnabled = false
+_G.StatusHudEnabled = true
+_G.WallCheckEnabled = false
+_G.AutoAirEnabled = false
+_G.AutoShootEnabled = false
+_G.RandomPartEnabled = false
+_G.AutoJumpEnabled = false
+_G.FOVEnabled = false
+_G.FOVSize = 220
+_G.AimSpeedEnabled = true
+_G.AimSpeed = 75
+_G.PredictionEnabled = true
+_G.AimPrediction = 65
+_G.PriorityESPEnabled = true
+_G.ThreeSixtyEnabled = false
+_G.TargetPart = "Head"
+_G.AutoShootMinDist = 1
+_G.AutoShootMaxDist = 150
 
-local UnlockGui = Instance.new("ScreenGui", CoreGui)
-UnlockGui.Name = "VareWareUnlock"
-local UnlockBg = Instance.new("Frame", UnlockGui)
-UnlockBg.Size = UDim2.new(0,320,0,180)
-UnlockBg.Position = UDim2.new(0.5,-160,0.5,-90)
-UnlockBg.BackgroundColor3 = C.BLACK
-Instance.new("UICorner",UnlockBg).CornerRadius = UDim.new(0.06,0)
-local Title = Instance.new("TextLabel", UnlockBg)
-Title.Size = UDim2.new(1,0,0,40)
-Title.Position = UDim2.new(0,0,0,10)
-Title.BackgroundTransparency = 1
-Title.Font = Enum.Font.GothamBold
-Title.Text = "VAREWARE | ENTER KEY"
-Title.TextColor3 = C.WHITE
-Title.TextSize = 18
-local KeyBox = Instance.new("TextBox", UnlockBg)
-KeyBox.Size = UDim2.new(0,260,0,45)
-KeyBox.Position = UDim2.new(0,30,0,60)
-KeyBox.BackgroundColor3 = C.GREY
-KeyBox.PlaceholderText = "Enter unlock key..."
-KeyBox.Text = ""
-KeyBox.TextColor3 = C.WHITE
-KeyBox.TextSize = 15
-Instance.new("UICorner",KeyBox).CornerRadius = UDim.new(0.12,0)
-local UnlockBtn = Instance.new("TextButton", UnlockBg)
-UnlockBtn.Size = UDim2.new(0,120,0,40)
-UnlockBtn.Position = UDim2.new(0,100,0,120)
-UnlockBtn.BackgroundColor3 = C.WHITE
-UnlockBtn.Font = Enum.Font.GothamBold
-UnlockBtn.Text = "UNLOCK"
-UnlockBtn.TextColor3 = C.BLACK
-UnlockBtn.TextSize = 14
-Instance.new("UICorner",UnlockBtn).CornerRadius = UDim.new(0.12,0)
+local AllParts = {"Head", "Torso", "Left Arm", "Right Arm", "Left Leg", "Right Leg"}
+local LastRandomChange = 0
+local LastShootTime = 0
+local PriorityList = {}
+local JumpData = {}
+local CurrentTarget = nil
+local DragHud, StartPos, DragOffset
+local MenuOpen = false
+local CrosshairRot = 0
 
-UnlockBtn.MouseButton1Click:Connect(function()
-    PlaySound(SOUND_BTN)
-    if KeyBox.Text:upper() == UNLOCK_KEY then Unlocked = true; UnlockGui:Destroy(); LoadMainScript() end
+-- Q TOGGLE AIMLOCK
+UserInputService.InputBegan:Connect(function(Input, GameProcessed)
+    if GameProcessed or Input.KeyCode ~= Enum.KeyCode.Q then return end
+    _G.AimlockEnabled = not _G.AimlockEnabled
+    PlaySound(Sounds.Click)
 end)
 
-function LoadMainScript()
-RaycastParams.FilterDescendantsInstances = {Character}
-RaycastParams.FilterType = Enum.RaycastFilterType.Exclude
-
--- ✅ WALL CHECK 100% RESTORED
-local function HasLineOfSight(fromPos, toPart)
-    if not fromPos or not toPart then return false end
-    local offset = Vector3.new(0, 0.5, 0)
-    local res = Workspace:Raycast(fromPos + offset, toPart.Position - (fromPos + offset), RaycastParams)
-    return not res or res.Instance:IsDescendantOf(toPart.Parent)
+-- CORE UTILS
+local function CanSee(Part)
+    local Params = RaycastParams.new()
+    Params.FilterDescendantsInstances = {LocalPlayer.Character, Camera}
+    Params.FilterType = Enum.RaycastFilterType.Exclude
+    local Res = Workspace:Raycast(Camera.CFrame.Position, Part.Position - Camera.CFrame.Position, Params)
+    return not Res or Res.Instance == Part or Res.Instance:IsDescendantOf(Part.Parent)
 end
 
-local function IsOnScreen(worldPos)
-    local pos, vis = Camera:WorldToViewportPoint(worldPos)
-    return vis and pos.X > 0 and pos.X < Camera.ViewportSize.X and pos.Y > 0 and pos.Y < Camera.ViewportSize.Y
+local function IsPlayerRagdolled()
+    local Char = LocalPlayer.Character
+    if not Char then return true end
+    local Hum = Char:FindFirstChild("Humanoid")
+    if not Hum then return true end
+    return Hum.PlatformStand or Hum.Sit or Char:FindFirstChild("Ragdoll") or Char:FindFirstChild("IsRagdolled")
 end
 
-local function IsRagdolled(hum)
-    if not hum or not hum.Parent then return true end
-    local char = hum.Parent
-    return hum:GetState() == Enum.HumanoidStateType.Ragdoll
-        or hum.PlatformStand == true
-        or char:FindFirstChild("IsRagdoll") and char.IsRagdoll.Value == true
-        or char:FindFirstChild("Ragdoll") ~= nil
-        or hum.Sit == true
-end
-
-local function IsValidHuman(hum)
-    if not hum or hum.Health <= 0 then return false end
-    if IsRagdolled(hum) then return false end
+local function IsValidTarget(Char)
+    if not Char then return false end
+    local H = Char:FindFirstChild("Humanoid")
+    if not H or H.Health <= 0 then return false end
+    if H.PlatformStand or H.Sit then return false end
+    if Char:FindFirstChild("Ragdoll") or Char:FindFirstChild("IsRagdolled") then return false end
     return true
 end
 
-_G.Settings = {
-    AimlockEnabled = false, AimSpeed = 50, Offset = 15, Prediction = 8,
-    ZoomFOV = 45, NormalFOV = 70, AutoZoomEnabled = false,
-    AutoAirTrigger = false, ShowNameDist = true, ShowSkeleton = true,
-    AimPart = "UpperTorso"
-}
-_G.Enemies = {}
-local CurrentTarget = nil
-local BgSound = Instance.new("Sound", SoundService)
-BgSound.SoundId = SOUND_LOOP; BgSound.Looped = true; BgSound.Volume = 0.5; BgSound:Play()
-local ScreenGui = Instance.new("ScreenGui", PlayerGui)
-ScreenGui.Name = "VareWareAimlock"
-ScreenGui.ResetOnSpawn = false; ScreenGui.IgnoreGuiInset = true
-
-local FullBlack = Instance.new("Frame", ScreenGui)
-FullBlack.Size = UDim2.new(1,0,1,0)
-FullBlack.BackgroundTransparency = 1 - OPACITY_70
-FullBlack.BackgroundColor3 = C.BLACK; FullBlack.ZIndex = -1
-
--- ✅ FLOATING DUST CIRCLES
-local DustContainer = Instance.new("Frame", ScreenGui)
-DustContainer.Size = UDim2.new(1,0,1,0); DustContainer.BackgroundTransparency = 1
-for i=1,25 do
-    local Dust = Instance.new("Frame", DustContainer)
-    Dust.Size = UDim2.new(0,math.random(2,6),0,math.random(2,6))
-    Dust.Position = UDim2.new(math.random(),0,math.random(),0)
-    Dust.BackgroundColor3 = C.WHITE
-    Dust.BackgroundTransparency = 0.7
-    Instance.new("UICorner",Dust).CornerRadius = UDim.new(1,0)
-    TweenService:Create(Dust, TweenInfo.new(math.random(4,8), Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {
-        Position = UDim2.new(math.random(),0,math.random(),0),
-        BackgroundTransparency = 0.9
-    }):Play()
+-- ✅ FIXED PART DETECTION
+local function GetTargetPart(Char)
+    if not Char then return Char:FindFirstChild("Head") end
+    local Sel = _G.TargetPart
+    if Sel == "Torso" then
+        return Char:FindFirstChild("Torso") or Char:FindFirstChild("UpperTorso") or Char:FindFirstChild("LowerTorso") or Char:FindFirstChild("Head")
+    end
+    if Sel == "Left Arm" then
+        return Char:FindFirstChild("Left Arm") or Char:FindFirstChild("LeftUpperArm") or Char:FindFirstChild("LeftHand") or Char:FindFirstChild("Head")
+    end
+    if Sel == "Right Arm" then
+        return Char:FindFirstChild("Right Arm") or Char:FindFirstChild("RightUpperArm") or Char:FindFirstChild("RightHand") or Char:FindFirstChild("Head")
+    end
+    if Sel == "Left Leg" then
+        return Char:FindFirstChild("Left Leg") or Char:FindFirstChild("LeftUpperLeg") or Char:FindFirstChild("LeftFoot") or Char:FindFirstChild("Head")
+    end
+    if Sel == "Right Leg" then
+        return Char:FindFirstChild("Right Leg") or Char:FindFirstChild("RightUpperLeg") or Char:FindFirstChild("RightFoot") or Char:FindFirstChild("Head")
+    end
+    return Char:FindFirstChild(Sel) or Char:FindFirstChild("Head")
 end
 
-local MainBG = Instance.new("Frame", ScreenGui)
-MainBG.Size = UDim2.new(0,580,0,480)
-MainBG.Position = UDim2.new(0.5,-290,0.5,-240)
-MainBG.BackgroundTransparency = 1 - OPACITY_70
-MainBG.BackgroundColor3 = C.BLACK
-Instance.new("UICorner",MainBG).CornerRadius = UDim.new(0.04,0)
+local function UpdateRandomPart()
+    if not _G.RandomPartEnabled or not CurrentTarget then return end
+    if os.clock() - LastRandomChange >= 0.5 then
+        LastRandomChange = os.clock()
+        _G.TargetPart = AllParts[Random.new():NextInteger(1, #AllParts)]
+        if PartBtn then PartBtn.Text = _G.TargetPart end
+    end
+end
+local SG = Instance.new("ScreenGui")
+SG.Name = "AlienUI"
+SG.Parent = game.CoreGui
+SG.ResetOnSpawn = false
+SG.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+SG.DisplayOrder = 9999
 
-local MinBox = Instance.new("TextButton", ScreenGui)
-MinBox.Size = UDim2.new(0,50,0,50); MinBox.Position = UDim2.new(0.5,-25,0.5,-25)
-MinBox.BackgroundTransparency = 1 - OPACITY_70; MinBox.BackgroundColor3 = C.BLACK
-MinBox.Text = "•"; MinBox.Font = Enum.Font.GothamBold; MinBox.TextColor3 = C.WHITE
-MinBox.TextSize = 24; MinBox.Visible = false; Instance.new("UICorner",MinBox).CornerRadius = UDim.new(1,0)
+local FULL_SIZE = UDim2.new(0,520,0,470)
+local Main = Instance.new("Frame")
+Main.Size = UDim2.new(0,0,0,0)
+Main.Position = UDim2.new(0.5,-260,0.5,-235)
+Main.BackgroundColor3 = C.DarkBG
+Main.Visible = false
+Main.ClipsDescendants = true
+Main.Parent = SG
+Instance.new("UICorner", Main).CornerRadius = UDim.new(0.03,0)
 
-local Sidebar = Instance.new("Frame", MainBG)
-Sidebar.Size = UDim2.new(0,65,1,0); Sidebar.BackgroundTransparency = 0.3; Sidebar.BackgroundColor3 = C.BLACK
+local InnerBorder = Instance.new("UIStroke", Main)
+InnerBorder.Color = C.MainGreen
+InnerBorder.Thickness = 2
+InnerBorder.Transparency = 1
 
-local Content = Instance.new("Frame", MainBG)
-Content.Size = UDim2.new(1,-80,1,-50); Content.Position = UDim2.new(0,75,0,50)
-Content.BackgroundTransparency = 1 - OPACITY_70; Content.BackgroundColor3 = C.BLACK
-Instance.new("UICorner",Content).CornerRadius = UDim.new(0.04,0)
+local Glow = Instance.new("UIStroke", Main)
+Glow.Color = C.MainGreen
+Glow.Thickness = 6
+Glow.Transparency = 0.8
+TweenService:Create(Glow, Anim.Slow, {Transparency = 0.5}):Play()
 
-local TopBar = Instance.new("Frame", MainBG)
-TopBar.Size = UDim2.new(1,0,0,40); TopBar.BackgroundTransparency = 0.7; TopBar.BackgroundColor3 = C.BLACK
+local Crosshair = Instance.new("Frame", Main)
+Crosshair.Size = UDim2.new(0,20,0,20)
+Crosshair.Position = UDim2.new(0,12,0,10)
+Crosshair.BackgroundTransparency = 1
+local CrossV = Instance.new("Frame", Crosshair)
+CrossV.Size = UDim2.new(0,2,1,0)
+CrossV.Position = UDim2.new(0.5,-1,0,0)
+CrossV.BackgroundColor3 = C.MainGreen
+local CrossH = Instance.new("Frame", Crosshair)
+CrossH.Size = UDim2.new(1,0,0,2)
+CrossH.Position = UDim2.new(0,0,0.5,-1)
+CrossH.BackgroundColor3 = C.MainGreen
 
-local MinBtn = Instance.new("TextButton", TopBar)
-MinBtn.Size = UDim2.new(0,28,0,28); MinBtn.Position = UDim2.new(1,-60,0.5,-14)
-MinBtn.BackgroundTransparency = 0.3; MinBtn.BackgroundColor3 = C.BLACK
-MinBtn.Text = "−"; MinBtn.Font = Enum.Font.GothamBold; MinBtn.TextColor3 = C.WHITE
-Instance.new("UICorner",MinBtn).CornerRadius = UDim.new(0.5,0)
+local ToggleContainer = Instance.new("Frame")
+ToggleContainer.Size = UDim2.new(0,110,0,34)
+ToggleContainer.Position = UDim2.new(0,25,0.5,-17)
+ToggleContainer.BackgroundColor3 = C.DarkBG
+ToggleContainer.Parent = SG
+Instance.new("UICorner", ToggleContainer).CornerRadius = UDim.new(0.02,0)
+local ToggleStroke = Instance.new("UIStroke", ToggleContainer)
+ToggleStroke.Color = C.MainGreen
+ToggleStroke.Thickness = 2
+ToggleStroke.Transparency = 0.6
+TweenService:Create(ToggleStroke, Anim.Slow, {Transparency = 0.2}):Play()
+local ToggleBtn = Instance.new("TextButton", ToggleContainer)
+ToggleBtn.Size = UDim2.new(1,0,1,0)
+ToggleBtn.BackgroundTransparency = 1
+ToggleBtn.Text = "Toggle GUI"
+ToggleBtn.TextColor3 = C.MainGreen
+ToggleBtn.Font = Enum.Font.GothamBlack
+ToggleBtn.TextSize = 15
+ToggleBtn.MouseButton1Click:Connect(function()
+    PlaySound(Sounds.ToggleGUI)
+    MenuOpen = not MenuOpen
+    if MenuOpen then
+        Main.Visible = true
+        TweenService:Create(Main, Anim.Open, {Size = FULL_SIZE}):Play()
+        task.wait(0.1)
+        TweenService:Create(InnerBorder, Anim.Normal, {Transparency = 0}):Play()
+    else
+        TweenService:Create(InnerBorder, Anim.Close, {Transparency = 1}):Play()
+        TweenService:Create(Main, Anim.Close, {Size = UDim2.new(0,0,0,0)}):Play()
+        task.wait(0.4)
+        Main.Visible = false
+    end
+end)
+
+local TopBar = Instance.new("Frame", Main)
+TopBar.Size = UDim2.new(1,0,0,52)
+TopBar.BackgroundColor3 = Color3.fromHex("#0A0F0D")
+TopBar.BackgroundTransparency = 0.1
+TopBar.ZIndex = 10
+local TopGlow = Instance.new("UIStroke", TopBar)
+TopGlow.Color = C.MainGreen
+TopGlow.Thickness = 1
+TopGlow.Transparency = 0.7
+
+local MainAvatarContainer = Instance.new("Frame", TopBar)
+MainAvatarContainer.Size = UDim2.new(0,38,0,38)
+MainAvatarContainer.Position = UDim2.new(0,12,0.5,-19)
+MainAvatarContainer.BackgroundColor3 = Color3.fromHex("#1B2B24")
+Instance.new("UICorner", MainAvatarContainer).CornerRadius = UDim.new(0.5,0)
+local MainAvatar = Instance.new("ImageLabel", MainAvatarContainer)
+MainAvatar.Size = UDim2.new(1,0,1,0)
+MainAvatar.BackgroundTransparency = 1
+MainAvatar.Image = "rbxthumb://type=AvatarHeadShot&id="..LocalPlayer.UserId.."&w=100&h=100"
+
+local TitleLabel = Instance.new("TextLabel", TopBar)
+TitleLabel.Size = UDim2.new(0,130,1,0)
+TitleLabel.Position = UDim2.new(0,58,0,0)
+TitleLabel.BackgroundTransparency = 1
+TitleLabel.Text = "ALIENWARE"
+TitleLabel.Font = Enum.Font.GothamBlack
+TitleLabel.TextColor3 = C.MainGreen
+TitleLabel.TextSize = 22
+TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+local MainTargetName = Instance.new("TextLabel", TopBar)
+MainTargetName.Size = UDim2.new(0,160,1,0)
+MainTargetName.Position = UDim2.new(0,200,0,0)
+MainTargetName.BackgroundTransparency = 1
+MainTargetName.Text = "NO TARGET"
+MainTargetName.Font = Enum.Font.GothamBold
+MainTargetName.TextColor3 = Color3.new(0.85,0.85,0.85)
+MainTargetName.TextSize = 18
 
 local CloseBtn = Instance.new("TextButton", TopBar)
-CloseBtn.Size = UDim2.new(0,28,0,28); CloseBtn.Position = UDim2.new(1,-28,0.5,-14)
-CloseBtn.BackgroundTransparency = 0.3; CloseBtn.BackgroundColor3 = C.BLACK
-CloseBtn.Text = "X"; CloseBtn.Font = Enum.Font.GothamBold; CloseBtn.TextColor3 = C.WHITE
-Instance.new("UICorner",CloseBtn).CornerRadius = UDim.new(0.5,0)
+CloseBtn.Size = UDim2.new(0,36,0,36)
+CloseBtn.Position = UDim2.new(1,-42,0.5,-18)
+CloseBtn.BackgroundTransparency = 1
+CloseBtn.Text = "✕"
+CloseBtn.Font = Enum.Font.GothamBlack
+CloseBtn.TextColor3 = C.MainGreen
+CloseBtn.TextSize = 28
+CloseBtn.MouseButton1Click:Connect(function() if MenuOpen then ToggleBtn:Click() end end)
 
-local TabAim = Instance.new("Frame", Content); TabAim.Size=UDim2.new(1,0,1,0); TabAim.BackgroundTransparency=1; TabAim.Visible=true
-local TabEnemy = Instance.new("Frame", Content); TabEnemy.Size=UDim2.new(1,0,1,0); TabEnemy.BackgroundTransparency=1; TabEnemy.Visible=false
+-- STATUS HUD
+local StatusHud = Instance.new("Frame")
+StatusHud.Size = UDim2.new(0,240,0,130)
+StatusHud.Position = UDim2.new(0.02,0,0.72,0)
+StatusHud.BackgroundColor3 = Color3.new(0,0,0)
+StatusHud.BackgroundTransparency = 0.2
+StatusHud.Visible = false
+StatusHud.Parent = SG
+Instance.new("UICorner", StatusHud).CornerRadius = UDim.new(0.03,0)
+local HudOutline = Instance.new("UIStroke", StatusHud)
+HudOutline.Color = C.MainGreen
+HudOutline.Thickness = 2
+HudOutline.Transparency = 0.3
 
-local Indicator = Instance.new("Frame", Sidebar)
-Indicator.Size=UDim2.new(0,4,0,35); Indicator.Position=UDim2.new(0,4,0.12,0)
-Indicator.BackgroundColor3=C.WHITE; Instance.new("UICorner",Indicator).CornerRadius=UDim.new(1,0)
+local AvatarContainer = Instance.new("Frame", StatusHud)
+AvatarContainer.Size = UDim2.new(0,45,0,45)
+AvatarContainer.Position = UDim2.new(0,10,0,10)
+AvatarContainer.BackgroundColor3 = Color3.fromHex("#222222")
+Instance.new("UICorner", AvatarContainer).CornerRadius = UDim.new(0.5,0)
+local Avatar = Instance.new("ImageLabel", AvatarContainer)
+Avatar.Size = UDim2.new(1,0,1,0)
+Avatar.BackgroundTransparency = 1
+Avatar.Image = "rbxassetid://15485995347"
 
-local Tabs = {{Icon="🎯",Frame=TabAim},{Icon="👥",Frame=TabEnemy}}
-for i,tab in ipairs(Tabs) do
-    local btn = Instance.new("TextButton", Sidebar)
-    btn.Size=UDim2.new(1,-10,0,45); btn.Position=UDim2.new(0.05,0,0.12+(i-1)*0.25,0)
-    btn.BackgroundTransparency=1; btn.Text=tab.Icon; btn.Font=Enum.Font.GothamBold; btn.TextColor3=C.WHITE; btn.TextSize=22
-    btn.MouseButton1Click:Connect(function()
-        PlaySound(SOUND_TAB)
-        TweenService:Create(Indicator,TweenInfo.new(0.18),{Position=UDim2.new(0,4,btn.Position.Y.Scale+0.05,0)}):Play()
-        TabAim.Visible=false; TabEnemy.Visible=false; tab.Frame.Visible=true
+local HudName = Instance.new("TextLabel", StatusHud)
+HudName.Size = UDim2.new(1,-70,0,20)
+HudName.Position = UDim2.new(0,65,0,12)
+HudName.BackgroundTransparency = 1
+HudName.Text = "No Target"
+HudName.Font = Enum.Font.GothamBold
+HudName.TextColor3 = C.White
+HudName.TextSize = 16
+
+local HudPart = Instance.new("TextLabel", StatusHud)
+HudPart.Size = UDim2.new(1,-70,0,16)
+HudPart.Position = UDim2.new(0,65,0,32)
+HudPart.BackgroundTransparency = 1
+HudPart.Text = "Target: -"
+HudPart.Font = Enum.Font.GothamMedium
+HudPart.TextColor3 = C.MainGreen
+HudPart.TextSize = 14
+
+local HudDist = Instance.new("TextLabel", StatusHud)
+HudDist.Size = UDim2.new(1,-70,0,16)
+HudDist.Position = UDim2.new(0,65,0,50)
+HudDist.BackgroundTransparency = 1
+HudDist.Text = "Distance: -"
+HudDist.Font = Enum.Font.GothamMedium
+HudDist.TextColor3 = C.White
+HudDist.TextSize = 14
+
+local HealthBg = Instance.new("Frame", StatusHud)
+HealthBg.Size = UDim2.new(1,-20,0,12)
+HealthBg.Position = UDim2.new(0,10,0,70)
+HealthBg.BackgroundColor3 = Color3.fromHex("#222222")
+Instance.new("UICorner", HealthBg).CornerRadius = UDim.new(1,0)
+local HealthBar = Instance.new("Frame", HealthBg)
+HealthBar.Size = UDim2.new(1,0,1,0)
+HealthBar.BackgroundColor3 = C.MainGreen
+Instance.new("UICorner", HealthBar).CornerRadius = UDim.new(1,0)
+
+local HudHealthTxt = Instance.new("TextLabel", StatusHud)
+HudHealthTxt.Size = UDim2.new(1,-20,0,14)
+HudHealthTxt.Position = UDim2.new(0,10,0,88)
+HudHealthTxt.BackgroundTransparency = 1
+HudHealthTxt.Text = "0 / 0"
+HudHealthTxt.Font = Enum.Font.GothamBold
+HudHealthTxt.TextColor3 = C.White
+HudHealthTxt.TextSize = 13
+
+StatusHud.InputBegan:Connect(function(I)
+    if I.UserInputType == Enum.UserInputType.MouseButton1 or I.UserInputType == Enum.UserInputType.Touch then
+        DragHud = true
+        StartPos = StatusHud.Position
+        DragOffset = I.Position
+    end
+end)
+UserInputService.InputChanged:Connect(function(I)
+    if DragHud and (I.UserInputType == Enum.UserInputType.MouseMovement or I.UserInputType == Enum.UserInputType.Touch) then
+        local Delta = I.Position - DragOffset
+        StatusHud.Position = UDim2.new(StartPos.X.Scale, StartPos.X.Offset + Delta.X, StartPos.Y.Scale, StartPos.Y.Offset + Delta.Y)
+    end
+end)
+UserInputService.InputEnded:Connect(function() DragHud = nil end)
+local SideBar = Instance.new("Frame", Main)
+SideBar.Size = UDim2.new(0,65,1,-52)
+SideBar.Position = UDim2.new(0,0,0,52)
+SideBar.BackgroundTransparency = 0.85
+SideBar.BackgroundColor3 = C.SideBG
+SideBar.ZIndex = 10
+local Content = Instance.new("Frame", Main)
+Content.Size = UDim2.new(1,-75,1,-57)
+Content.Position = UDim2.new(0,70,0,57)
+Content.BackgroundTransparency = 1
+Content.ZIndex = 10
+
+local Tabs = {}
+for i=1,3 do
+    Tabs[i] = Instance.new("Frame", Content)
+    Tabs[i].Size = UDim2.new(1,0,1,0)
+    Tabs[i].BackgroundTransparency = 1
+    Tabs[i].Visible = i == 1
+end
+
+local function MakeToggle(Name, PosY, Key, Tab)
+    local Con = Instance.new("Frame", Tabs[Tab or 1])
+    Con.Size = UDim2.new(1,-20,0,42)
+    Con.Position = UDim2.new(0,10,0,PosY)
+    Con.BackgroundTransparency = 0.92
+    Con.BackgroundColor3 = C.DarkBG
+    local Lab = Instance.new("TextLabel", Con)
+    Lab.Size = UDim2.new(1,-70,1,0)
+    Lab.Position = UDim2.new(0,12,0,0)
+    Lab.BackgroundTransparency = 1
+    Lab.Text = Name.."."
+    Lab.Font = Enum.Font.GothamBold
+    Lab.TextColor3 = Color3.new(0.95,0.95,0.95)
+    Lab.TextSize = 17
+    Lab.TextXAlignment = Enum.TextXAlignment.Left
+    local Bg = Instance.new("Frame", Con)
+    Bg.Size = UDim2.new(0,46,0,24)
+    Bg.Position = UDim2.new(1,-58,0.5,-12)
+    Bg.BackgroundColor3 = _G[Key] and C.MainGreen or C.ToggleOffBg
+    Instance.new("UICorner", Bg).CornerRadius = UDim.new(1,0)
+    local Knob = Instance.new("Frame", Bg)
+    Knob.Size = UDim2.new(0,20,0,20)
+    Knob.Position = _G[Key] and UDim2.new(1,-21,0.5,-10) or UDim2.new(0,1,0.5,-10)
+    Knob.BackgroundColor3 = C.ToggleOffKnob
+    Instance.new("UICorner", Knob).CornerRadius = UDim.new(1,0)
+    Bg.InputBegan:Connect(function(I)
+        if I.UserInputType == Enum.UserInputType.MouseButton1 or I.UserInputType == Enum.UserInputType.Touch then
+            _G[Key] = not _G[Key]; PlaySound(Sounds.Click)
+            TweenService:Create(Bg, Anim.Fast, {BackgroundColor3 = _G[Key] and C.MainGreen or C.ToggleOffBg}):Play()
+            TweenService:Create(Knob, Anim.Fast, {Position = _G[Key] and UDim2.new(1,-21,0.5,-10) or UDim2.new(0,1,0.5,-10)}):Play()
+        end
     end)
 end
 
-local function AddToggle(yPos, name, setting)
-    local c = Instance.new("Frame", TabAim)
-    c.Size = UDim2.new(1,0,0,50); c.Position = UDim2.new(0,0,yPos,0); c.BackgroundTransparency = 1
-    local lbl = Instance.new("TextLabel", c)
-    lbl.Size = UDim2.new(0.75,0,1,0); lbl.BackgroundTransparency = 1
-    lbl.Font = Enum.Font.GothamSemibold; lbl.Text = name; lbl.TextColor3 = C.WHITE; lbl.TextSize = 15; lbl.TextXAlignment = Enum.TextXAlignment.Left
-    local tb = Instance.new("TextButton", c)
-    tb.Size = UDim2.new(0,36,0,36); tb.Position = UDim2.new(1,-44,0.5,-18)
-    tb.BackgroundColor3 = _G.Settings[setting] and C.WHITE or C.GREY
-    tb.Text = _G.Settings[setting] and "✓" or ""
-    tb.Font = Enum.Font.GothamBold; tb.TextColor3 = _G.Settings[setting] and C.BLACK or C.WHITE
-    tb.TextSize = 20; Instance.new("UICorner", tb).CornerRadius = UDim.new(0.15,0)
-    tb.MouseButton1Click:Connect(function()
-        PlaySound(SOUND_BTN)
-        _G.Settings[setting] = not _G.Settings[setting]
-        tb.Text = _G.Settings[setting] and "✓" or ""
-        tb.BackgroundColor3 = _G.Settings[setting] and C.WHITE or C.GREY
-        tb.TextColor3 = _G.Settings[setting] and C.BLACK or C.WHITE
+local function MakeFOVSlider(Name, PosY, ToggleKey, ValKey, Min, Max, Def)
+    local Con = Instance.new("Frame", Tabs[1])
+    Con.Size = UDim2.new(1,-20,0,58)
+    Con.Position = UDim2.new(0,10,0,PosY)
+    Con.BackgroundTransparency = 0.92
+    Con.BackgroundColor3 = C.DarkBG
+    local Bg = Instance.new("Frame", Con)
+    Bg.Size = UDim2.new(0,46,0,24)
+    Bg.Position = UDim2.new(0,8,0,5)
+    Bg.BackgroundColor3 = _G[ToggleKey] and C.MainGreen or C.ToggleOffBg
+    Instance.new("UICorner", Bg).CornerRadius = UDim.new(1,0)
+    local Knob = Instance.new("Frame", Bg)
+    Knob.Size = UDim2.new(0,20,0,20)
+    Knob.Position = _G[ToggleKey] and UDim2.new(1,-21,0.5,-10) or UDim2.new(0,1,0.5,-10)
+    Knob.BackgroundColor3 = C.ToggleOffKnob
+    Instance.new("UICorner", Knob).CornerRadius = UDim.new(1,0)
+    local Lab = Instance.new("TextLabel", Con)
+    Lab.Size = UDim2.new(1,-65,0,22)
+    Lab.Position = UDim2.new(0,62,0,5)
+    Lab.BackgroundTransparency = 1
+    Lab.Text = Name.."."
+    Lab.Font = Enum.Font.GothamBold
+    Lab.TextColor3 = Color3.new(0.95,0.95,0.95)
+    Lab.TextSize = 17
+    local ValLab = Instance.new("TextLabel", Con)
+    ValLab.Size = UDim2.new(0,45,0,22)
+    ValLab.Position = UDim2.new(1,-55,0,5)
+    ValLab.BackgroundTransparency = 1
+    ValLab.Text = Def.."px"
+    ValLab.TextColor3 = C.MainGreen
+    ValLab.TextSize = 15
+    local Track = Instance.new("Frame", Con)
+    Track.Size = UDim2.new(1,-25,0,5)
+    Track.Position = UDim2.new(0,12,0,38)
+    Track.BackgroundColor3 = Color3.fromHex("#333333")
+    Instance.new("UICorner", Track).CornerRadius = UDim.new(1,0)
+    local Fill = Instance.new("Frame", Track)
+    Fill.Size = UDim2.new((Def-Min)/(Max-Min),0,1,0)
+    Fill.BackgroundColor3 = C.MainGreen
+    Instance.new("UICorner", Fill).CornerRadius = UDim.new(1,0)
+    local SliderKnob = Instance.new("Frame", Track)
+    SliderKnob.Size = UDim2.new(0,12,0,12)
+    SliderKnob.Position = UDim2.new((Def-Min)/(Max-Min),-6,0.5,-6)
+    SliderKnob.BackgroundColor3 = C.MainGreen
+    Instance.new("UICorner", SliderKnob).CornerRadius = UDim.new(1,0)
+    _G[ValKey] = Def; local Drag = false
+    Bg.InputBegan:Connect(function(I)
+        if I.UserInputType == Enum.UserInputType.MouseButton1 or I.UserInputType == Enum.UserInputType.Touch then
+            _G[ToggleKey] = not _G[ToggleKey]; PlaySound(Sounds.Click)
+            TweenService:Create(Bg, Anim.Fast, {BackgroundColor3 = _G[ToggleKey] and C.MainGreen or C.ToggleOffBg}):Play()
+            TweenService:Create(Knob, Anim.Fast, {Position = _G[ToggleKey] and UDim2.new(1,-21,0.5,-10) or UDim2.new(0,1,0.5,-10)}):Play()
+            FOVCircle.Visible = _G[ToggleKey]
+        end
+    end)
+    Track.InputBegan:Connect(function(I) if I.UserInputType == Enum.UserInputType.MouseButton1 or I.UserInputType == Enum.UserInputType.Touch then Drag = true end end)
+    UserInputService.InputChanged:Connect(function(I)
+        if Drag and (I.UserInputType == Enum.UserInputType.MouseMovement or I.UserInputType == Enum.UserInputType.Touch) then
+            local RelX = I.Position.X - Track.AbsolutePosition.X
+            local Ratio = Math.clamp(RelX / Track.AbsoluteSize.X, 0, 1)
+            _G[ValKey] = Math.floor(Min + (Max - Min) * Ratio)
+            ValLab.Text = _G[ValKey].."px"
+            Fill.Size = UDim2.new(Ratio, 0, 1, 0)
+            SliderKnob.Position = UDim2.new(Ratio, -6, 0.5, -6)
+            FOVCircle.Radius = _G[ValKey]
+        end
+    end)
+    UserInputService.InputEnded:Connect(function() Drag = false end)
+end
+
+local function MakeToggleSlider(Name, PosY, ToggleKey, ValKey, Min, Max, Def, Suffix)
+    Suffix = Suffix or ""
+    local Con = Instance.new("Frame", Tabs[1])
+    Con.Size = UDim2.new(1,-20,0,58)
+    Con.Position = UDim2.new(0,10,0,PosY)
+    Con.BackgroundTransparency = 0.92
+    Con.BackgroundColor3 = C.DarkBG
+    local Bg = Instance.new("Frame", Con)
+    Bg.Size = UDim2.new(0,46,0,24)
+    Bg.Position = UDim2.new(0,8,0,5)
+    Bg.BackgroundColor3 = _G[ToggleKey] and C.MainGreen or C.ToggleOffBg
+    Instance.new("UICorner", Bg).CornerRadius = UDim.new(1,0)
+    local Knob = Instance.new("Frame", Bg)
+    Knob.Size = UDim2.new(0,20,0,20)
+    Knob.Position = _G[ToggleKey] and UDim2.new(1,-21,0.5,-10) or UDim2.new(0,1,0.5,-10)
+    Knob.BackgroundColor3 = C.ToggleOffKnob
+    Instance.new("UICorner", Knob).CornerRadius = UDim.new(1,0)
+    local Lab = Instance.new("TextLabel", Con)
+    Lab.Size = UDim2.new(1,-65,0,22)
+    Lab.Position = UDim2.new(0,62,0,5)
+    Lab.BackgroundTransparency = 1
+    Lab.Text = Name.."."
+    Lab.Font = Enum.Font.GothamBold
+    Lab.TextColor3 = Color3.new(0.95,0.95,0.95)
+    Lab.TextSize = 17
+    local ValLab = Instance.new("TextLabel", Con)
+    ValLab.Size = UDim2.new(0,45,0,22)
+    ValLab.Position = UDim2.new(1,-55,0,5)
+    ValLab.BackgroundTransparency = 1
+    ValLab.Text = Def..Suffix
+    ValLab.TextColor3 = C.MainGreen
+    ValLab.TextSize = 15
+    local Track = Instance.new("Frame", Con)
+    Track.Size = UDim2.new(1,-25,0,5)
+    Track.Position = UDim2.new(0,12,0,38)
+    Track.BackgroundColor3 = Color3.fromHex("#333333")
+    Instance.new("UICorner", Track).CornerRadius = UDim.new(1,0)
+    local Fill = Instance.new("Frame", Track)
+    Fill.Size = UDim2.new((Def-Min)/(Max-Min),0,1,0)
+    Fill.BackgroundColor3 = C.MainGreen
+    Instance.new("UICorner", Fill).CornerRadius = UDim.new(1,0)
+    local SliderKnob = Instance.new("Frame", Track)
+    SliderKnob.Size = UDim2.new(0,12,0,12)
+    SliderKnob.Position = UDim2.new((Def-Min)/(Max-Min),-6,0.5,-6)
+    SliderKnob.BackgroundColor3 = C.MainGreen
+    Instance.new("UICorner", SliderKnob).CornerRadius = UDim.new(1,0)
+    _G[ValKey] = Def; local Drag = false
+    Bg.InputBegan:Connect(function(I)
+        if I.UserInputType == Enum.UserInputType.MouseButton1 or I.UserInputType == Enum.UserInputType.Touch then
+            _G[ToggleKey] = not _G[ToggleKey]; PlaySound(Sounds.Click)
+            TweenService:Create(Bg, Anim.Fast, {BackgroundColor3 = _G[ToggleKey] and C.MainGreen or C.ToggleOffBg}):Play()
+            TweenService:Create(Knob, Anim.Fast, {Position = _G[ToggleKey] and UDim2.new(1,-21,0.5,-10) or UDim2.new(0,1,0.5,-10)}):Play()
+        end
+    end)
+    Track.InputBegan:Connect(function(I) if I.UserInputType == Enum.UserInputType.MouseButton1 or I.UserInputType == Enum.UserInputType.Touch then Drag = true end end)
+    UserInputService.InputChanged:Connect(function(I)
+        if Drag and _G[ToggleKey] and (I.UserInputType == Enum.UserInputType.MouseMovement or I.UserInputType == Enum.UserInputType.Touch) then
+            local RelX = I.Position.X - Track.AbsolutePosition.X
+            local Ratio = Math.clamp(RelX / Track.AbsoluteSize.X, 0, 1)
+            _G[ValKey] = Math.floor(Min + (Max - Min) * Ratio)
+            ValLab.Text = tostring(_G[ValKey])..Suffix
+            Fill.Size = UDim2.new(Ratio, 0, 1, 0)
+            SliderKnob.Position = UDim2.new(Ratio, -6, 0.5, -6)
+        end
+    end)
+    UserInputService.InputEnded:Connect(function() Drag = false end)
+end
+
+-- TAB 1
+MakeToggle("Aimlock", 45, "AimlockEnabled")
+MakeToggle("Show Status HUD", 92, "StatusHudEnabled")
+MakeToggle("Wall Check", 139, "WallCheckEnabled")
+MakeToggle("360° Aimlock", 186, "ThreeSixtyEnabled")
+MakeFOVSlider("FOV Size", 233, "FOVEnabled", "FOVSize", 50, 800, 220)
+MakeToggleSlider("Aim Speed", 300, "AimSpeedEnabled", "AimSpeed", 1, 100, 75, "")
+MakeToggleSlider("Prediction", 365, "PredictionEnabled", "AimPrediction", 0, 100, 65, "")
+
+-- TAB 2
+local PriorityHeader = Instance.new("TextLabel", Tabs[2])
+PriorityHeader.Size = UDim2.new(1,0,0,30)
+PriorityHeader.Position = UDim2.new(0,10,0,5)
+PriorityHeader.BackgroundTransparency = 1
+PriorityHeader.Text = "PRIORITY & TARGET PART"
+PriorityHeader.Font = Enum.Font.GothamBlack
+PriorityHeader.TextColor3 = C.MainGreen
+PriorityHeader.TextSize = 19
+
+local PartCon = Instance.new("Frame", Tabs[2])
+PartCon.Size = UDim2.new(1,-20,0,38)
+PartCon.Position = UDim2.new(0,10,0,45)
+PartCon.BackgroundColor3 = Color3.fromHex("#0A0F0D")
+Instance.new("UICorner", PartCon).CornerRadius = UDim.new(0.03,0)
+local PartLab = Instance.new("TextLabel", PartCon)
+PartLab.Size = UDim2.new(1,-90,1,0)
+PartLab.Position = UDim2.new(0,12,0,0)
+PartLab.BackgroundTransparency = 1
+PartLab.Text = "Aim At Part"
+PartLab.Font = Enum.Font.GothamMedium
+PartLab.TextColor3 = Color3.new(0.9,0.9,0.9)
+PartLab.TextSize = 17
+PartLab.TextXAlignment = Enum.TextXAlignment.Left
+PartBtn = Instance.new("TextButton", PartCon)
+PartBtn.Size = UDim2.new(0,75,0,26)
+PartBtn.Position = UDim2.new(1,-87,0.5,-13)
+PartBtn.BackgroundColor3 = C.InputBg
+PartBtn.Text = _G.TargetPart
+PartBtn.Font = Enum.Font.GothamBold
+PartBtn.TextColor3 = C.MainGreen
+PartBtn.TextSize = 15
+Instance.new("UICorner", PartBtn).CornerRadius = UDim.new(0.3,0)
+PartBtn.MouseButton1Click:Connect(function()
+    PlaySound(Sounds.Click)
+    local Cur = table.find(AllParts, _G.TargetPart) or 1
+    _G.TargetPart = AllParts[Cur%#AllParts + 1]
+    PartBtn.Text = _G.TargetPart
+end)
+
+local SearchContainer = Instance.new("Frame", Tabs[2])
+SearchContainer.Size = UDim2.new(1,-20,0,40)
+SearchContainer.Position = UDim2.new(0,10,0,95)
+SearchContainer.BackgroundColor3 = C.InputBg
+Instance.new("UICorner", SearchContainer).CornerRadius = UDim.new(0.04,0)
+local SearchBox = Instance.new("TextBox", SearchContainer)
+SearchBox.Size = UDim2.new(1,-15,1,0)
+SearchBox.Position = UDim2.new(0,8,0,0)
+SearchBox.BackgroundTransparency = 1
+SearchBox.PlaceholderText = "Enter name..."
+SearchBox.TextColor3 = C.White
+SearchBox.Font = Enum.Font.GothamBold
+SearchBox.TextSize = 16
+local ListContainer = Instance.new("Frame", Tabs[2])
+ListContainer.Size = UDim2.new(1,-20,0,220)
+ListContainer.Position = UDim2.new(0,10,0,140)
+ListContainer.BackgroundColor3 = C.InputBg
+Instance.new("UICorner", ListContainer).CornerRadius = UDim.new(0.03,0)
+local ListLayout = Instance.new("UIListLayout", ListContainer)
+ListLayout.Padding = UDim.new(0,6)
+
+local function AddToPriority(Player)
+    if not Player or Player == LocalPlayer or PriorityList[Player.UserId] then return end
+    PlaySound(Sounds.Click)
+    local Item = Instance.new("Frame")
+    Item.Size = UDim2.new(0.9,0,0,36)
+    Item.BackgroundColor3 = C.DarkBG
+    Instance.new("UICorner", Item).CornerRadius = UDim.new(0.04,0)
+    local NameLab = Instance.new("TextLabel", Item)
+    NameLab.Size = UDim2.new(1,-80,1,0)
+    NameLab.Position = UDim2.new(0,10,0,0)
+    NameLab.BackgroundTransparency = 1
+    NameLab.Text = Player.Name.."."
+    NameLab.Font = Enum.Font.GothamBold
+    NameLab.TextColor3 = C.White
+    NameLab.TextSize = 16
+    local RemoveBtn = Instance.new("TextButton", Item)
+    RemoveBtn.Size = UDim2.new(0,22,0,22)
+    RemoveBtn.Position = UDim2.new(1,-28,0.5,-11)
+    RemoveBtn.BackgroundTransparency = 1
+    RemoveBtn.Text = "✕"
+    RemoveBtn.TextColor3 = C.Red
+    Item.Parent = ListContainer
+    PriorityList[Player.UserId] = {Player = Player, Item = Item, Tracer = Drawing.new("Line"), NameTag = Drawing.new("Text")}
+    local Data = PriorityList[Player.UserId]
+    Data.Tracer.Color = C.MainGreen
+    Data.NameTag.Color = C.MainGreen
+    RemoveBtn.MouseButton1Click:Connect(function()
+        PlaySound(Sounds.Click)
+        Data.Tracer:Remove(); Data.NameTag:Remove(); Item:Destroy(); PriorityList[Player.UserId] = nil
     end)
 end
+SearchBox.FocusLost:Connect(function(EnterPressed)
+    if not EnterPressed or SearchBox.Text == "" then return end
+    local Query = SearchBox.Text:lower(); SearchBox.Text = ""
+    for _, Player in pairs(Players:GetPlayers()) do
+        if Player ~= LocalPlayer and Player.Name:lower():find(Query, 1, true) then AddToPriority(Player); break end
+    end
+end)
 
-local function AddSlider(name,posY,setting,default)
-    local c=Instance.new("Frame",TabAim); c.Size=UDim2.new(1,0,0,55); c.Position=UDim2.new(0,0,posY,0); c.BackgroundTransparency=1
-    local lbl=Instance.new("TextLabel",c); lbl.Size=UDim2.new(0.4,0,1,0); lbl.BackgroundTransparency=1; lbl.Font=Enum.Font.GothamSemibold; lbl.TextColor3=C.WHITE; lbl.TextSize=15
-    local bg=Instance.new("Frame",c); bg.Size=UDim2.new(0.5,0,0,12); bg.Position=UDim2.new(0.45,0,0.4,0); bg.BackgroundColor3=C.GREY; Instance.new("UICorner",bg).CornerRadius=UDim.new(1,0)
-    local fill=Instance.new("Frame",bg); fill.Size=UDim2.new(default/100,0,1,0); fill.BackgroundColor3=C.WHITE; Instance.new("UICorner",fill).CornerRadius=UDim.new(1,0)
-    local function update(v) v=math.clamp(math.floor(v),1,100); _G.Settings[setting]=v; lbl.Text=name..": "..v; fill.Size=UDim2.new(v/100,0,1,0) end
-    update(default)
-    bg.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then PlaySound(SOUND_BTN); update((i.Position.X - bg.AbsolutePosition.X)/bg.AbsoluteSize.X*100) end end)
-end
+-- TAB 3
+MakeToggle("Auto-Shoot", 20, "AutoShootEnabled", 3)
+MakeToggle("Random Aim Part", 70, "RandomPartEnabled", 3)
+MakeToggle("Auto Jump On Target", 120, "AutoJumpEnabled", 3)
 
-AddToggle(0.03, "Aimlock", "AimlockEnabled")
-AddToggle(0.13, "Auto Air Trigger", "AutoAirTrigger")
-AddToggle(0.23, "Auto Zoom", "AutoZoomEnabled")
-AddSlider("Aim Speed",0.35,"AimSpeed",50)
-AddSlider("Offset",0.50,"Offset",15)
-AddSlider("Prediction",0.65,"Prediction",8)
-
--- ✅ BODY PART SELECTOR
-local PartContainer = Instance.new("Frame", TabAim)
-PartContainer.Size = UDim2.new(1,0,0,50); PartContainer.Position = UDim2.new(0,0,0.80,0); PartContainer.BackgroundTransparency = 1
-local PartLabel = Instance.new("TextLabel", PartContainer)
-PartLabel.Size = UDim2.new(0.3,0,1,0); PartLabel.BackgroundTransparency = 1
-PartLabel.Font = Enum.Font.GothamSemibold; PartLabel.Text = "Aim Part:"; PartLabel.TextColor3 = C.WHITE; PartLabel.TextSize = 15; PartLabel.TextXAlignment = Enum.TextXAlignment.Left
-
-local Parts = {"Head", "UpperTorso", "LowerTorso", "HumanoidRootPart"}
-local PartButtons = {}
-for i,part in ipairs(Parts) do
-    local btn = Instance.new("TextButton", PartContainer)
-    btn.Size = UDim2.new(0.16,0,0,35)
-    btn.Position = UDim2.new(0.32 + ((i-1)*0.17),0,0.5,-17.5)
-    btn.BackgroundColor3 = _G.Settings.AimPart == part and C.WHITE or C.GREY
-    btn.Font = Enum.Font.Gotham; btn.TextColor3 = _G.Settings.AimPart == part and C.BLACK or C.WHITE
-    btn.Text = part == "UpperTorso" and "Torso" or part == "HumanoidRootPart" and "Root" or part
-    btn.TextSize = 12
-    Instance.new("UICorner", btn).CornerRadius = UDim.new(0.15,0)
-    btn.MouseButton1Click:Connect(function()
-        PlaySound(SOUND_BTN)
-        _G.Settings.AimPart = part
-        for _,b in pairs(PartButtons) do b.BackgroundColor3 = C.GREY; b.TextColor3 = C.WHITE end
-        btn.BackgroundColor3 = C.WHITE; btn.TextColor3 = C.BLACK
+-- TAB SWITCHER
+local TabIndicator = Instance.new("Frame",SideBar)
+TabIndicator.Size = UDim2.new(0,5,0,40)
+TabIndicator.Position = UDim2.new(0,5,0.1,0)
+TabIndicator.BackgroundColor3 = C.MainGreen
+Instance.new("UICorner",TabIndicator).CornerRadius = UDim.new(1,0)
+local TabIcons = {"⁍", "⌖", "⏣"}
+for i=1,3 do
+    local Btn = Instance.new("TextButton",SideBar)
+    Btn.Size = UDim2.new(1,-10,0,48)
+    Btn.Position = UDim2.new(0.05,0, 0.12 + ((i-1)*0.3),0)
+    Btn.BackgroundTransparency = 1
+    Btn.Text = TabIcons[i]
+    Btn.TextColor3 = C.MainGreen
+    Btn.TextSize = 22
+    Btn.MouseButton1Click:Connect(function()
+        PlaySound(Sounds.TabSwitch)
+        TweenService:Create(TabIndicator, Anim.Normal, {Position=UDim2.new(0,5, 0.12 + ((i-1)*0.3),0)}):Play()
+        for _,T in pairs(Tabs) do T.Visible=false end
+        Tabs[i].Visible = true
     end)
-    table.insert(PartButtons, btn)
 end
-local Search = Instance.new("TextBox", TabEnemy)
-Search.Size=UDim2.new(1,0,0,45); Search.Position=UDim2.new(0,0,0.05,0)
-Search.BackgroundTransparency=0.3; Search.BackgroundColor3=C.BLACK; Search.PlaceholderText="Add enemy by name..."; Search.Font=Enum.Font.Gotham; Search.TextColor3=C.WHITE; Search.TextSize=14
-Instance.new("UICorner",Search).CornerRadius=UDim.new(0.1,0)
-
-local ToggleName = Instance.new("TextButton", TabEnemy)
-ToggleName.Size=UDim2.new(0.48,0,0,40); ToggleName.Position=UDim2.new(0,0,0.18,0)
-ToggleName.BackgroundColor3 = _G.Settings.ShowNameDist and C.WHITE or C.GREY
-ToggleName.Font=Enum.Font.GothamBold; ToggleName.TextColor3 = _G.Settings.ShowNameDist and C.BLACK or C.WHITE
-ToggleName.Text = "Name/Dist: ON"
-Instance.new("UICorner",ToggleName).CornerRadius=UDim.new(0.08,0)
-
-local ToggleSkel = Instance.new("TextButton", TabEnemy)
-ToggleSkel.Size=UDim2.new(0.48,0,0,40); ToggleSkel.Position=UDim2.new(0.52,0,0.18,0)
-ToggleSkel.BackgroundColor3 = _G.Settings.ShowSkeleton and C.WHITE or C.GREY
-ToggleSkel.Font=Enum.Font.GothamBold; ToggleSkel.TextColor3 = _G.Settings.ShowSkeleton and C.BLACK or C.WHITE
-ToggleSkel.Text = "Skeleton: ON"
-Instance.new("UICorner",ToggleSkel).CornerRadius=UDim.new(0.08,0)
-
-local EnemyList = Instance.new("ScrollingFrame", TabEnemy)
-EnemyList.Size=UDim2.new(1,0,0.55,0); EnemyList.Position=UDim2.new(0,0,0.32,0)
-EnemyList.BackgroundTransparency=0.3; EnemyList.BackgroundColor3=C.BLACK; EnemyList.ScrollBarThickness=6; EnemyList.ScrollBarImageColor3=C.WHITE; EnemyList.CanvasSize=UDim2.new(0,0,0,0)
-Instance.new("UICorner",EnemyList).CornerRadius=UDim.new(0.08,0)
-local Layout = Instance.new("UIListLayout", EnemyList); Layout.SortOrder=Enum.SortOrder.LayoutOrder; Layout.Padding=UDim.new(0,10)
-
-local function MakeSkeleton(char)
-    local skel = {}
-    local connections = {{"Head","UpperTorso"},{"UpperTorso","LowerTorso"},{"UpperTorso","LeftUpperArm"},{"LeftUpperArm","LeftLowerArm"},{"LeftLowerArm","LeftHand"},{"UpperTorso","RightUpperArm"},{"RightUpperArm","RightLowerArm"},{"RightLowerArm","RightHand"},{"LowerTorso","LeftUpperLeg"},{"LeftUpperLeg","LeftLowerLeg"},{"LeftLowerLeg","LeftFoot"},{"LowerTorso","RightUpperLeg"},{"RightUpperLeg","RightLowerLeg"},{"RightLowerLeg","RightFoot"}}
-    for _,pair in pairs(connections) do
-        local l = Drawing.new("Line")
-        l.Color = C.WHITE; l.Thickness = 1.5; l.Transparency = 1; l.Visible = false
-        table.insert(skel, {Line=l, A=pair[1], B=pair[2]})
+local function RunAutoJump()
+    if not _G.AutoJumpEnabled or not _G.AimlockEnabled or not CurrentTarget then return end
+    local Char = LocalPlayer.Character
+    if not Char then return end
+    local Hum = Char:FindFirstChild("Humanoid")
+    if not Hum or Hum.PlatformStand or Hum.Sit then return end
+    if Hum.FloorMaterial ~= Enum.Material.Air then
+        Hum:ChangeState(Enum.HumanoidStateType.Jumping)
     end
-    return skel
 end
 
-local function RemoveEnemy(uid)
-    local d = _G.Enemies[uid]; if not d then return end
-    if d.Glow then d.Glow:Destroy() end
-    if d.Tag then d.Tag:Destroy() end
-    if d.Skeleton then for _,v in pairs(d.Skeleton) do v.Line:Remove() end end
-    if d.Row then d.Row:Destroy() end
-    _G.Enemies[uid] = nil
-    EnemyList.CanvasSize = UDim2.new(0,0,0,Layout.AbsoluteContentSize.Y)
-    if CurrentTarget and d.Player and CurrentTarget.Parent == d.Player.Character then CurrentTarget = nil end
+local function RunAutoShoot()
+    if not _G.AutoShootEnabled or not _G.AimlockEnabled then return end
+    if not CurrentTarget then return end
+    if IsPlayerRagdolled() then return end
+    if os.clock() - LastShootTime < 0.05 then return end
+    local TChar = CurrentTarget.Character
+    if not TChar or not IsValidTarget(TChar) then return end
+    local AimPart = GetTargetPart(TChar)
+    if not AimPart then return end
+    if _G.WallCheckEnabled and not CanSee(AimPart) then return end
+    local Dist = (AimPart.Position - Camera.CFrame.Position).Magnitude
+    if Dist < _G.AutoShootMinDist or Dist > _G.AutoShootMaxDist then return end
+    local Tool = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Tool")
+    if not Tool then return end
+    Tool:Activate()
+    LastShootTime = os.clock()
 end
 
-local function AddEnemy(plr)
-    if not plr or _G.Enemies[plr.UserId] then return end
-    local uid = plr.UserId
-    local row = Instance.new("Frame",EnemyList)
-    row.Size=UDim2.new(1,0,0,55); row.BackgroundTransparency=0.3; row.BackgroundColor3=C.BLACK
-    Instance.new("UICorner",row).CornerRadius=UDim.new(0.08,0)
-    local nameLbl=Instance.new("TextLabel",row)
-    nameLbl.Size=UDim2.new(0.75,0,1,0); nameLbl.Position=UDim2.new(0.05,0,0,0)
-    nameLbl.BackgroundTransparency=1; nameLbl.Font=Enum.Font.GothamSemibold; nameLbl.TextColor3=C.WHITE; nameLbl.Text=plr.DisplayName.." (@"..plr.Name..")"; nameLbl.TextXAlignment=Enum.TextXAlignment.Left
-    local rmBtn=Instance.new("TextButton",row)
-    rmBtn.Size=UDim2.new(0,32,0,32); rmBtn.Position=UDim2.new(0.92,0,0.2,0); rmBtn.BackgroundColor3=C.GREY; rmBtn.Text="X"; rmBtn.Font=Enum.Font.GothamBold; rmBtn.TextColor3=C.WHITE
-    Instance.new("UICorner",rmBtn).CornerRadius=UDim.new(0.5,0)
+-- MAIN AIM LOOP
+RunService.RenderStepped:Connect(function(Delta)
+    if MenuOpen then CrosshairRot += Delta * 180; Crosshair.Rotation = CrosshairRot % 360 end
+    FOVCircle.Position = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
+    if IsPlayerRagdolled() then CurrentTarget = nil return end
 
-    local glow = Instance.new("Highlight", CoreGui)
-    glow.FillColor = C.WHITE; glow.FillTransparency = 0.6; glow.OutlineColor = C.WHITE; glow.OutlineTransparency = 0.2; glow.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-    local tag = Instance.new("BillboardGui", CoreGui)
-    tag.AlwaysOnTop = true; tag.Size = UDim2.new(0,160,0,45); tag.StudsOffset = Vector3.new(0,4,0); tag.LightInfluence = 0
-    local tName = Instance.new("TextLabel",tag); tName.Size=UDim2.new(1,0,0.5,0); tName.BackgroundTransparency=1; tName.Font=Enum.Font.GothamBold; tName.TextColor3=C.WHITE; tName.TextSize=12
-    local tDist = Instance.new("TextLabel",tag); tDist.Size=UDim2.new(1,0,0.5,0); tDist.Position=UDim2.new(0,0,0.5,0); tDist.BackgroundTransparency=1; tDist.Font=Enum.Font.Gotham; tDist.TextColor3=C.WHITE; tDist.TextSize=11
-    local skel = plr.Character and MakeSkeleton(plr.Character) or {}
+    local TargetPos, BestDist, Center = nil, math.huge, Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
+    local MaxFOV = _G.FOVEnabled and _G.FOVSize or math.huge
+    CurrentTarget = nil
 
-    _G.Enemies[uid] = {Player=plr,Row=row,Glow=glow,Tag=tag,TName=tName,TDist=tDist,Skeleton=skel}
-    rmBtn.MouseButton1Click:Connect(function() PlaySound(SOUND_BTN); RemoveEnemy(uid) end)
-    plr.Removing:Connect(function() RemoveEnemy(uid) end)
-    EnemyList.CanvasSize = UDim2.new(0,0,0,Layout.AbsoluteContentSize.Y)
-end
-
-Search.FocusLost:Connect(function(enter)
-    if not enter then return end; PlaySound(SOUND_BTN)
-    local q = Search.Text:lower()
-    for _,p in ipairs(Players:GetPlayers()) do
-        if p~=LocalPlayer and (p.Name:lower():find(q) or p.DisplayName:lower():find(q)) then AddEnemy(p) break end
-    end
-    Search.Text = ""
-end)
-
-ToggleName.MouseButton1Click:Connect(function()
-    PlaySound(SOUND_BTN)
-    _G.Settings.ShowNameDist = not _G.Settings.ShowNameDist
-    ToggleName.Text = "Name/Dist: "..(_G.Settings.ShowNameDist and "ON" or "OFF")
-    ToggleName.BackgroundColor3 = _G.Settings.ShowNameDist and C.WHITE or C.GREY
-    ToggleName.TextColor3 = _G.Settings.ShowNameDist and C.BLACK or C.WHITE
-end)
-ToggleSkel.MouseButton1Click:Connect(function()
-    PlaySound(SOUND_BTN)
-    _G.Settings.ShowSkeleton = not _G.Settings.ShowSkeleton
-    ToggleSkel.Text = "Skeleton: "..(_G.Settings.ShowSkeleton and "ON" or "OFF")
-    ToggleSkel.BackgroundColor3 = _G.Settings.ShowSkeleton and C.WHITE or C.GREY
-    ToggleSkel.TextColor3 = _G.Settings.ShowSkeleton and C.BLACK or C.WHITE
-end)
-
--- ✅ STRICT WALL CHECK ENFORCED EVERYWHERE
-local function GetBestTarget()
-    if IsRagdolled(Humanoid) or not _G.Settings.AimlockEnabled or not Humanoid or Humanoid.Health <= 0 then
-        CurrentTarget = nil; return nil
+    local function Check(Ply)
+        if not Ply or not Ply.Character or not IsValidTarget(Ply.Character) then return end
+        local AimPart = GetTargetPart(Ply.Character)
+        local Pos, Vis = Camera:WorldToScreenPoint(AimPart.Position)
+        local D = (Vector2.new(Pos.X,Pos.Y)-Center).Magnitude
+        local PassFOV = _G.ThreeSixtyEnabled or (Vis and D < MaxFOV)
+        if PassFOV and (not _G.WallCheckEnabled or CanSee(AimPart)) and D < BestDist then
+            BestDist = D
+            CurrentTarget = Ply
+            TargetPos = _G.PredictionEnabled and AimPart.Position + Ply.Character.HumanoidRootPart.Velocity * (_G.AimPrediction/100) * 0.15 or AimPart.Position
+        end
     end
 
-    if CurrentTarget then
-        local targetChar = CurrentTarget.Parent
-        local targetHum = targetChar and targetChar:FindFirstChild("Humanoid")
-        if targetHum and targetHum.Health > 0 and not IsRagdolled(targetHum) then
-            -- ONLY DROP IF: WALL BLOCKED + OFF SCREEN
-            if not HasLineOfSight(HumanoidRootPart.Position, CurrentTarget) then
-                CurrentTarget = nil
+    if _G.AimlockEnabled then
+        if next(PriorityList) then
+            for _, D in pairs(PriorityList) do Check(D.Player) end
+        else
+            for _, P in pairs(Players:GetPlayers()) do if P ~= LocalPlayer then Check(P) end end
+        end
+        if TargetPos then
+            if _G.AimSpeedEnabled then
+                Camera.CFrame = Camera.CFrame:Lerp(CFrame.new(Camera.CFrame.Position, TargetPos), _G.AimSpeed / 100)
             else
-                return CurrentTarget
+                Camera.CFrame = CFrame.new(Camera.CFrame.Position, TargetPos)
             end
-        else
-            CurrentTarget = nil
         end
     end
 
-    local best,bestD=nil,math.huge
-    for _,d in pairs(_G.Enemies) do
-        local p=d.Player; if not p then continue end
-        local c=p.Character; local hum=c and c:FindFirstChild("Humanoid")
-        local aimPart = c and c:FindFirstChild(_G.Settings.AimPart)
-        local hrp=c and c:FindFirstChild("HumanoidRootPart")
-        -- ✅ WALL CHECK REQUIRED TO LOCK NEW TARGET
-        if IsValidHuman(hum) and aimPart and hrp and HasLineOfSight(HumanoidRootPart.Position, aimPart) then
-            local dist=(Camera.CFrame.Position-aimPart.Position).Magnitude
-            if dist<bestD then bestD=dist; best=aimPart end
-        end
-    end
-    CurrentTarget=best; return best
-end
+    UpdateRandomPart()
+    RunAutoJump()
+    RunAutoShoot()
 
-local LastShot = 0
-local function AutoAirCheck(target)
-    if not _G.Settings.AutoAirTrigger or not target then return end
-    local char = target.Parent
-    local hum = char:FindFirstChild("Humanoid")
-    if hum and hum.FloorMaterial == Enum.Material.Air and os.clock() - LastShot > 0.3 then
-        task.spawn(function()
-            UserInputService:SendKeyEvent(true, Enum.KeyCode.MouseLeftButton, false, game)
-            task.wait(0.05)
-            UserInputService:SendKeyEvent(false, Enum.KeyCode.MouseLeftButton, false, game)
-            LastShot = os.clock()
-        end)
-    end
-end
-
-RunService.RenderStepped:Connect(function()
-    if not Character or not HumanoidRootPart then CurrentTarget=nil return end
-    local target = GetBestTarget()
-
-    if _G.Settings.AutoZoomEnabled then Camera.FieldOfView = target and _G.Settings.ZoomFOV or _G.Settings.NormalFOV end
-    if target then
-        AutoAirCheck(target)
-        local hrp=target.Parent:FindFirstChild("HumanoidRootPart")
-        local aim=target.Position
-        if hrp then aim += hrp.Velocity*(_G.Settings.Prediction/100) end
-        aim += Vector3.new(0,_G.Settings.Offset/10,0)
-        Camera.CFrame=Camera.CFrame:Lerp(CFrame.lookAt(Camera.CFrame.Position,aim), _G.Settings.AimSpeed/100)
-    end
-
-    for uid,d in pairs(_G.Enemies) do
-        local p=d.Player; if not p then RemoveEnemy(uid) continue end
-        local c=p.Character; local hum=c and c:FindFirstChild("Humanoid")
-        local hrp=c and c:FindFirstChild("HumanoidRootPart")
-        if c and IsValidHuman(hum) and hrp then
-            d.Glow.Enabled = _G.Settings.ShowNameDist
-            d.Tag.Enabled = _G.Settings.ShowNameDist
-            if _G.Settings.ShowNameDist then
-                d.Glow.Adornee=c; d.Tag.Adornee=hrp
-                d.TName.Text=p.DisplayName
-                d.TDist.Text=math.floor((HumanoidRootPart.Position-hrp.Position).Magnitude).." studs"
-            end
-            if d.Skeleton then
-                for _,v in pairs(d.Skeleton) do
-                    local a = c:FindFirstChild(v.A)
-                    local b = c:FindFirstChild(v.B)
-                    if a and b then
-                        local posA, visA = Camera:WorldToViewportPoint(a.Position)
-                        local posB, visB = Camera:WorldToViewportPoint(b.Position)
-                        v.Line.Visible = _G.Settings.ShowSkeleton and visA and visB
-                        if v.Line.Visible then v.Line.From = Vector2.new(posA.X,posA.Y); v.Line.To = Vector2.new(posB.X,posB.Y) end
-                    else v.Line.Visible = false end
+    if _G.AutoAirEnabled and CurrentTarget and CurrentTarget.Character then
+        local THum = CurrentTarget.Character:FindFirstChild("Humanoid")
+        if THum then
+            if not JumpData[CurrentTarget.UserId] then JumpData[CurrentTarget.UserId] = {OnGround = true, Shot = false} end
+            local D = JumpData[CurrentTarget.UserId]
+            local Air = THum.FloorMaterial == Enum.Material.Air
+            if D.OnGround and Air and not D.Shot then
+                if CanSee(GetTargetPart(CurrentTarget.Character)) then
+                    local T = LocalPlayer.Character:FindFirstChildOfClass("Tool")
+                    if T then T:Activate() end
                 end
-            end
-        else
-            d.Glow.Enabled=false; d.Tag.Enabled=false
-            if d.Skeleton then for _,v in pairs(d.Skeleton) do v.Line.Visible=false end end
+                D.Shot = true
+            elseif not Air then D.Shot = false end
+            D.OnGround = not Air
         end
     end
+
+    local SC = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
+    for _,D in pairs(PriorityList) do
+        local P = D.Player
+        if P and P.Character and P.Character.PrimaryPart then
+            local Pos, Vis = Camera:WorldToScreenPoint(P.Character.PrimaryPart.Position)
+            local Show = _G.PriorityESPEnabled and Vis
+            D.Tracer.Visible = Show; D.NameTag.Visible = Show
+            if Show then
+                D.Tracer.From = SC; D.Tracer.To = Vector2.new(Pos.X, Pos.Y)
+                D.NameTag.Position = Vector2.new(Pos.X, Pos.Y-22)
+                D.NameTag.Text = P.Name
+            end
+        end
+    end
+
+    local HasT = CurrentTarget and _G.StatusHudEnabled
+    StatusHud.Visible = HasT
+    if HasT then
+        local H = CurrentTarget.Character:FindFirstChild("Humanoid")
+        HudName.Text = CurrentTarget.Name
+        HudPart.Text = "Target: ".._G.TargetPart
+        HudDist.Text = "Distance: "..math.floor((GetTargetPart(CurrentTarget.Character).Position-Camera.CFrame.Position).Magnitude)
+        pcall(function() Avatar.Image = "rbxthumb://type=AvatarHeadShot&id="..CurrentTarget.UserId.."&w=150&h=150" end)
+        if H then HealthBar.Size=UDim2.new(math.max(0,H.Health)/math.max(1,H.MaxHealth),0,1,0); HudHealthTxt.Text=math.floor(H.Health).." / "..math.floor(H.MaxHealth) end
+    end
+    MainTargetName.Text = CurrentTarget and CurrentTarget.Name:upper() or "NO TARGET"
 end)
-
-MinBtn.MouseButton1Click:Connect(function() PlaySound(SOUND_MIN); MainBG.Visible=false; MinBox.Visible=true; FullBlack.Visible=false; DustContainer.Visible=false; BgSound:Pause() end)
-MinBox.MouseButton1Click:Connect(function() PlaySound(SOUND_BTN); MinBox.Visible=false; MainBG.Visible=true; FullBlack.Visible=true; DustContainer.Visible=true; BgSound:Resume() end)
-CloseBtn.MouseButton1Click:Connect(function() PlaySound(SOUND_CLOSE); BgSound:Stop(); task.delay(0.3,function() ScreenGui:Destroy() end) end)
-
-print("✅ FIXED: Wall check 100% restored | No wall aim | Key: PAPAKAINE")
-end
