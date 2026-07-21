@@ -1,5 +1,5 @@
 -- ==============================================
--- UPDATED: TAB REORDER | SMART SEARCH | AUTO SHOOT SLIDERS | GUI ENHANCE
+-- UPDATED: LOCK SYSTEM | AVATAR BOTTOM | ALL TEXT UPPERCASE
 -- THEME: NEON GREEN 🟢
 -- ==============================================
 local Players = game:GetService("Players")
@@ -61,11 +61,13 @@ FOVCircle.Visible = false
 _G = setmetatable({}, {__index = _G})
 _G.AimlockEnabled = false
 _G.StatusHudEnabled = true
+_G.StatusHudLocked = false
 _G.WallCheckEnabled = false
 _G.AutoAirEnabled = false
 _G.AutoShootEnabled = false
 _G.RandomPartEnabled = false
 _G.AutoJumpEnabled = false
+_G.ShowTracer = true
 _G.FOVEnabled = false
 _G.FOVSize = 220
 _G.AimSpeedEnabled = true
@@ -73,7 +75,6 @@ _G.AimSpeed = 75
 _G.PredictionEnabled = true
 _G.AimPrediction = 65
 _G.PriorityESPEnabled = true
-_G.OnlyTracerEnabled = true
 _G.ThreeSixtyEnabled = false
 _G.TargetPart = "Head"
 _G.AutoShootMinDist = 5
@@ -86,8 +87,10 @@ local LastShootTime = 0
 local PriorityList = {}
 local JumpData = {}
 local CurrentTarget = nil
-local DragHud, StartPos, DragOffset
+local DragHud, StartPos, DragOffset, SavedHudPos
 local MenuOpen = false
+local GuiDraggable = false
+local GuiDrag, GuiStart, GuiOffset
 local CrosshairRot = 0
 
 -- Q TOGGLE AIMLOCK
@@ -139,20 +142,21 @@ local function UpdateRandomPart()
     if os.clock() - LastRandomChange >= 0.5 then
         LastRandomChange = os.clock()
         _G.TargetPart = AllParts[Random.new():NextInteger(1, #AllParts)]
-        if PartBtn then PartBtn.Text = _G.TargetPart end
+        if PartBtn then PartBtn.Text = _G.TargetPart:upper() end
     end
 end
 local SG = Instance.new("ScreenGui")
-SG.Name = "AlienUI"
+SG.Name = "ALIENWARE"
 SG.Parent = game.CoreGui
 SG.ResetOnSpawn = false
 SG.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 SG.DisplayOrder = 9999
 
-local FULL_SIZE = UDim2.new(0,520,0,510)
+-- EXPANDED GUI SIZE
+local FULL_SIZE = UDim2.new(0,520,0,550)
 local Main = Instance.new("Frame")
 Main.Size = UDim2.new(0,0,0,0)
-Main.Position = UDim2.new(0.5,-260,0.5,-255)
+Main.Position = UDim2.new(0.5,-260,0.5,-275)
 Main.BackgroundColor3 = C.DarkBG
 Main.BackgroundTransparency = 0.05
 Main.Visible = false
@@ -184,25 +188,63 @@ CrossH.Size = UDim2.new(1,0,0,2)
 CrossH.Position = UDim2.new(0,0,0.5,-1)
 CrossH.BackgroundColor3 = C.MainGreen
 
+-- 🆕 NEW TOGGLE GUI BOX DESIGN
 local ToggleContainer = Instance.new("Frame")
-ToggleContainer.Size = UDim2.new(0,110,0,34)
-ToggleContainer.Position = UDim2.new(0,25,0.5,-17)
+ToggleContainer.Size = UDim2.new(0,160,0,70)
+ToggleContainer.Position = UDim2.new(0.02,0,0.02,0)
 ToggleContainer.BackgroundColor3 = C.DarkBG
 ToggleContainer.Parent = SG
-Instance.new("UICorner", ToggleContainer).CornerRadius = UDim.new(0.02,0)
+Instance.new("UICorner", ToggleContainer).CornerRadius = UDim.new(0.03,0)
 local ToggleStroke = Instance.new("UIStroke", ToggleContainer)
 ToggleStroke.Color = C.MainGreen
 ToggleStroke.Thickness = 2
-ToggleStroke.Transparency = 0.6
-TweenService:Create(ToggleStroke, Anim.Slow, {Transparency = 0.2}):Play()
-local ToggleBtn = Instance.new("TextButton", ToggleContainer)
-ToggleBtn.Size = UDim2.new(1,0,1,0)
-ToggleBtn.BackgroundTransparency = 1
-ToggleBtn.Text = "Toggle GUI"
-ToggleBtn.TextColor3 = C.MainGreen
-ToggleBtn.Font = Enum.Font.GothamBlack
-ToggleBtn.TextSize = 15
-ToggleBtn.MouseButton1Click:Connect(function()
+ToggleStroke.Transparency = 0.3
+TweenService:Create(ToggleStroke, Anim.Slow, {Transparency = 0.1}):Play()
+
+local ToggleTitle = Instance.new("TextLabel", ToggleContainer)
+ToggleTitle.Size = UDim2.new(1,0,0,35)
+ToggleTitle.Position = UDim2.new(0,0,0,2)
+ToggleTitle.BackgroundTransparency = 1
+ToggleTitle.Text = "Toggle GUI"
+ToggleTitle.Font = Enum.Font.GothamBlack
+ToggleTitle.TextColor3 = C.MainGreen
+ToggleTitle.TextSize = 16
+
+local LockBtn = Instance.new("TextButton", ToggleContainer)
+LockBtn.Size = UDim2.new(1,-10,0,28)
+LockBtn.Position = UDim2.new(0,5,0,38)
+LockBtn.BackgroundColor3 = C.InputBg
+LockBtn.Font = Enum.Font.GothamBold
+LockBtn.Text = "🔓 UNLOCK"
+LockBtn.TextColor3 = C.MainGreen
+LockBtn.TextSize = 14
+Instance.new("UICorner", LockBtn).CornerRadius = UDim.new(0.04,0)
+
+-- LOCK/UNLOCK + DRAG SYSTEM
+LockBtn.MouseButton1Click:Connect(function()
+    PlaySound(Sounds.Click)
+    GuiDraggable = not GuiDraggable
+    LockBtn.Text = GuiDraggable and "🔒 LOCK" or "🔓 UNLOCK"
+    LockBtn.TextColor3 = GuiDraggable and Color3.fromHex("#FF5555") or C.MainGreen
+end)
+
+ToggleContainer.InputBegan:Connect(function(I)
+    if GuiDraggable and I.UserInputType == Enum.UserInputType.MouseButton1 then
+        GuiDrag = true
+        GuiStart = ToggleContainer.Position
+        GuiOffset = I.Position
+    end
+end)
+UserInputService.InputChanged:Connect(function(I)
+    if GuiDrag and GuiDraggable and I.UserInputType == Enum.UserInputType.MouseMovement then
+        local D = I.Position - GuiOffset
+        ToggleContainer.Position = UDim2.new(GuiStart.X.Scale, GuiStart.X.Offset + D.X, GuiStart.Y.Scale, GuiStart.Y.Offset + D.Y)
+    end
+end)
+UserInputService.InputEnded:Connect(function() GuiDrag = false end)
+
+-- OPEN/CLOSE MAIN MENU
+ToggleContainer.MouseButton2Click:Connect(function()
     PlaySound(Sounds.ToggleGUI)
     MenuOpen = not MenuOpen
     if MenuOpen then
@@ -228,19 +270,9 @@ TopGlow.Color = C.MainGreen
 TopGlow.Thickness = 1
 TopGlow.Transparency = 0.7
 
-local MainAvatarContainer = Instance.new("Frame", TopBar)
-MainAvatarContainer.Size = UDim2.new(0,38,0,38)
-MainAvatarContainer.Position = UDim2.new(0,12,0.5,-19)
-MainAvatarContainer.BackgroundColor3 = Color3.fromHex("#1B2B24")
-Instance.new("UICorner", MainAvatarContainer).CornerRadius = UDim.new(0.5,0)
-local MainAvatar = Instance.new("ImageLabel", MainAvatarContainer)
-MainAvatar.Size = UDim2.new(1,0,1,0)
-MainAvatar.BackgroundTransparency = 1
-MainAvatar.Image = "rbxthumb://type=AvatarHeadShot&id="..LocalPlayer.UserId.."&w=100&h=100"
-
 local TitleLabel = Instance.new("TextLabel", TopBar)
-TitleLabel.Size = UDim2.new(0,130,1,0)
-TitleLabel.Position = UDim2.new(0,58,0,0)
+TitleLabel.Size = UDim2.new(0,200,1,0)
+TitleLabel.Position = UDim2.new(0,12,0,0)
 TitleLabel.BackgroundTransparency = 1
 TitleLabel.Text = "ALIENWARE"
 TitleLabel.Font = Enum.Font.GothamBlack
@@ -250,7 +282,7 @@ TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
 
 local MainTargetName = Instance.new("TextLabel", TopBar)
 MainTargetName.Size = UDim2.new(0,160,1,0)
-MainTargetName.Position = UDim2.new(0,200,0,0)
+MainTargetName.Position = UDim2.new(0,220,0,0)
 MainTargetName.BackgroundTransparency = 1
 MainTargetName.Text = "NO TARGET"
 MainTargetName.Font = Enum.Font.GothamBold
@@ -265,31 +297,48 @@ CloseBtn.Text = "✕"
 CloseBtn.Font = Enum.Font.GothamBlack
 CloseBtn.TextColor3 = C.MainGreen
 CloseBtn.TextSize = 28
-CloseBtn.MouseButton1Click:Connect(function() if MenuOpen then ToggleBtn:Click() end end)
+CloseBtn.MouseButton1Click:Connect(function() if MenuOpen then ToggleContainer:MouseButton2Click() end end)
 
 -- GREEN SEPARATOR LINE
 local SepLine = Instance.new("Frame", Main)
 SepLine.Size = UDim2.new(1,-20,0,2)
 SepLine.Position = UDim2.new(0,10,0,57)
 SepLine.BackgroundColor3 = C.MainGreen
-SepLine.BackgroundTransparency = 0.3
+SepLine.BackgroundTransparency = 0.25
 TweenService:Create(SepLine, Anim.Slow, {BackgroundTransparency = 0.1}):Play()
 
--- FOOTER
-local Footer = Instance.new("TextLabel", Main)
-Footer.Size = UDim2.new(1,-20,0,20)
-Footer.Position = UDim2.new(0,10,1,-25)
-Footer.BackgroundTransparency = 1
-Footer.Text = "----------------------->  Avatar - "..LocalPlayer.Name
-Footer.Font = Enum.Font.GothamMedium
-Footer.TextColor3 = C.MainGreen
-Footer.TextSize = 12
-Footer.TextXAlignment = Enum.TextXAlignment.Left
+-- 🆕 BOTTOM SECTION: AVATAR + NAME
+local BottomLine = Instance.new("Frame", Main)
+BottomLine.Size = UDim2.new(1,-20,0,2)
+BottomLine.Position = UDim2.new(0,10,1,-45)
+BottomLine.BackgroundColor3 = C.MainGreen
+BottomLine.BackgroundTransparency = 0.25
+TweenService:Create(BottomLine, Anim.Slow, {BackgroundTransparency = 0.1}):Play()
 
--- STATUS HUD
+local BottomAvatar = Instance.new("Frame", Main)
+BottomAvatar.Size = UDim2.new(0,28,0,28)
+BottomAvatar.Position = UDim2.new(0,12,1,-38)
+BottomAvatar.BackgroundColor3 = Color3.fromHex("#1B2B24")
+Instance.new("UICorner", BottomAvatar).CornerRadius = UDim.new(0.5,0)
+local AvatarImg = Instance.new("ImageLabel", BottomAvatar)
+AvatarImg.Size = UDim2.new(1,0,1,0)
+AvatarImg.BackgroundTransparency = 1
+AvatarImg.Image = "rbxthumb://type=AvatarHeadShot&id="..LocalPlayer.UserId.."&w=100&h=100"
+
+local FooterText = Instance.new("TextLabel", Main)
+FooterText.Size = UDim2.new(1,-50,0,20)
+FooterText.Position = UDim2.new(0,45,1,-38)
+FooterText.BackgroundTransparency = 1
+FooterText.Text = "AVATAR - "..LocalPlayer.Name:upper()
+FooterText.Font = Enum.Font.GothamMedium
+FooterText.TextColor3 = C.MainGreen
+FooterText.TextSize = 13
+FooterText.TextXAlignment = Enum.TextXAlignment.Left
+
+-- STATUS HUD WITH LOCK SYSTEM
 local StatusHud = Instance.new("Frame")
 StatusHud.Size = UDim2.new(0,240,0,130)
-StatusHud.Position = UDim2.new(0.02,0,0.72,0)
+StatusHud.Position = SavedHudPos or UDim2.new(0.02,0,0.72,0)
 StatusHud.BackgroundColor3 = Color3.new(0,0,0)
 StatusHud.BackgroundTransparency = 0.2
 StatusHud.Visible = false
@@ -314,7 +363,7 @@ local HudName = Instance.new("TextLabel", StatusHud)
 HudName.Size = UDim2.new(1,-70,0,20)
 HudName.Position = UDim2.new(0,65,0,12)
 HudName.BackgroundTransparency = 1
-HudName.Text = "No Target"
+HudName.Text = "NO TARGET"
 HudName.Font = Enum.Font.GothamBold
 HudName.TextColor3 = C.White
 HudName.TextSize = 16
@@ -323,7 +372,7 @@ local HudPart = Instance.new("TextLabel", StatusHud)
 HudPart.Size = UDim2.new(1,-70,0,16)
 HudPart.Position = UDim2.new(0,65,0,32)
 HudPart.BackgroundTransparency = 1
-HudPart.Text = "Target: -"
+HudPart.Text = "TARGET: -"
 HudPart.Font = Enum.Font.GothamMedium
 HudPart.TextColor3 = C.MainGreen
 HudPart.TextSize = 14
@@ -332,7 +381,7 @@ local HudDist = Instance.new("TextLabel", StatusHud)
 HudDist.Size = UDim2.new(1,-70,0,16)
 HudDist.Position = UDim2.new(0,65,0,50)
 HudDist.BackgroundTransparency = 1
-HudDist.Text = "Distance: -"
+HudDist.Text = "DISTANCE: -"
 HudDist.Font = Enum.Font.GothamMedium
 HudDist.TextColor3 = C.White
 HudDist.TextSize = 14
@@ -356,7 +405,9 @@ HudHealthTxt.Font = Enum.Font.GothamBold
 HudHealthTxt.TextColor3 = C.White
 HudHealthTxt.TextSize = 13
 
+-- HUD DRAG + LOCK SAVE
 StatusHud.InputBegan:Connect(function(I)
+    if _G.StatusHudLocked then return end
     if I.UserInputType == Enum.UserInputType.MouseButton1 or I.UserInputType == Enum.UserInputType.Touch then
         DragHud = true
         StartPos = StatusHud.Position
@@ -364,25 +415,27 @@ StatusHud.InputBegan:Connect(function(I)
     end
 end)
 UserInputService.InputChanged:Connect(function(I)
-    if DragHud and (I.UserInputType == Enum.UserInputType.MouseMovement or I.UserInputType == Enum.UserInputType.Touch) then
+    if DragHud and not _G.StatusHudLocked and (I.UserInputType == Enum.UserInputType.MouseMovement or I.UserInputType == Enum.UserInputType.Touch) then
         local Delta = I.Position - DragOffset
         StatusHud.Position = UDim2.new(StartPos.X.Scale, StartPos.X.Offset + Delta.X, StartPos.Y.Scale, StartPos.Y.Offset + Delta.Y)
     end
 end)
-UserInputService.InputEnded:Connect(function() DragHud = nil end)
+UserInputService.InputEnded:Connect(function()
+    DragHud = nil
+    if _G.StatusHudLocked then SavedHudPos = StatusHud.Position end
+end)
 local SideBar = Instance.new("Frame", Main)
-SideBar.Size = UDim2.new(0,65,1,-82)
+SideBar.Size = UDim2.new(0,65,1,-100)
 SideBar.Position = UDim2.new(0,0,0,62)
 SideBar.BackgroundTransparency = 0.85
 SideBar.BackgroundColor3 = C.SideBG
 SideBar.ZIndex = 10
 local Content = Instance.new("Frame", Main)
-Content.Size = UDim2.new(1,-75,1,-87)
+Content.Size = UDim2.new(1,-75,1,-105)
 Content.Position = UDim2.new(0,70,0,62)
 Content.BackgroundTransparency = 1
 Content.ZIndex = 10
 
--- TAB ORDER: 1=AIM | 2=EXTRA | 3=PRIORITY
 local Tabs = {}
 for i=1,3 do
     Tabs[i] = Instance.new("Frame", Content)
@@ -401,7 +454,7 @@ local function MakeToggle(Name, PosY, Key, Tab)
     Lab.Size = UDim2.new(1,-70,1,0)
     Lab.Position = UDim2.new(0,12,0,0)
     Lab.BackgroundTransparency = 1
-    Lab.Text = Name.."."
+    Lab.Text = Name:upper().."."
     Lab.Font = Enum.Font.GothamBold
     Lab.TextColor3 = Color3.new(0.95,0.95,0.95)
     Lab.TextSize = 17
@@ -436,7 +489,7 @@ local function MakeSlider(Name, PosY, ValKey, Min, Max, Def, Suffix, Tab)
     Lab.Size = UDim2.new(1,-65,0,22)
     Lab.Position = UDim2.new(0,12,0,5)
     Lab.BackgroundTransparency = 1
-    Lab.Text = Name.."."
+    Lab.Text = Name:upper().."."
     Lab.Font = Enum.Font.GothamBold
     Lab.TextColor3 = Color3.new(0.95,0.95,0.95)
     Lab.TextSize = 17
@@ -496,7 +549,7 @@ local function MakeFOVSlider(Name, PosY, ToggleKey, ValKey, Min, Max, Def)
     Lab.Size = UDim2.new(1,-65,0,22)
     Lab.Position = UDim2.new(0,62,0,5)
     Lab.BackgroundTransparency = 1
-    Lab.Text = Name.."."
+    Lab.Text = Name:upper().."."
     Lab.Font = Enum.Font.GothamBold
     Lab.TextColor3 = Color3.new(0.95,0.95,0.95)
     Lab.TextSize = 17
@@ -549,25 +602,26 @@ end
 MakeToggle("Aimlock", 20, "AimlockEnabled", 1)
 MakeToggle("Show Status HUD", 67, "StatusHudEnabled", 1)
 MakeToggle("Wall Check", 114, "WallCheckEnabled", 1)
-MakeToggle("360° Aimlock", 161, "ThreeSixtyEnabled", 1)
+MakeToggle("360 Aimlock", 161, "ThreeSixtyEnabled", 1)
 MakeFOVSlider("FOV Size", 208, "FOVEnabled", "FOVSize", 50, 800, 220)
 MakeSlider("Aim Speed", 275, "AimSpeed", 1, 100, 75, "", 1)
 MakeSlider("Prediction", 340, "AimPrediction", 0, 100, 65, "", 1)
 
--- TAB 2: EXTRA / AUTO SHOOT
-MakeToggle("Auto-Shoot", 10, "AutoShootEnabled", 2)
+-- TAB 2: EXTRA / AUTO SHOOT + SHOW TRACER
+MakeToggle("Auto Shoot", 10, "AutoShootEnabled", 2)
 MakeToggle("Random Aim Part", 57, "RandomPartEnabled", 2)
 MakeToggle("Auto Jump On Target", 104, "AutoJumpEnabled", 2)
-MakeToggle("Only Tracer", 151, "OnlyTracerEnabled", 2) -- COMBINED ✅
-MakeSlider("Auto Shoot Distance", 198, "AutoShootMaxDist", 10, 300, 150, "", 2)
-MakeSlider("Fire Delay", 265, "AutoShootDelay", 0.01, 1, 0.1, "s", 2)
+MakeToggle("Show Tracer", 151, "ShowTracer", 2) -- ✅ RENAMED
+MakeToggle("Lock Status HUD", 198, "StatusHudLocked", 2) -- ✅ NEW TOGGLE
+MakeSlider("Auto Shoot Distance", 245, "AutoShootMaxDist", 10, 300, 150, "", 2)
+MakeSlider("Fire Delay", 312, "AutoShootDelay", 0.01, 1, 0.1, "s", 2)
 
--- TAB 3: PRIORITY & TARGET PART
+-- TAB 3: PRIORITY LIST
 local PriorityHeader = Instance.new("TextLabel", Tabs[3])
 PriorityHeader.Size = UDim2.new(1,0,0,30)
 PriorityHeader.Position = UDim2.new(0,10,0,5)
 PriorityHeader.BackgroundTransparency = 1
-PriorityHeader.Text = "🎯 PRIORITY LIST"
+PriorityHeader.Text = "PRIORITY LIST"
 PriorityHeader.Font = Enum.Font.GothamBlack
 PriorityHeader.TextColor3 = C.MainGreen
 PriorityHeader.TextSize = 19
@@ -581,7 +635,7 @@ local PartLab = Instance.new("TextLabel", PartCon)
 PartLab.Size = UDim2.new(1,-90,1,0)
 PartLab.Position = UDim2.new(0,12,0,0)
 PartLab.BackgroundTransparency = 1
-PartLab.Text = "Aim At Part"
+PartLab.Text = "AIM AT PART"
 PartLab.Font = Enum.Font.GothamMedium
 PartLab.TextColor3 = Color3.new(0.9,0.9,0.9)
 PartLab.TextSize = 17
@@ -590,7 +644,7 @@ PartBtn = Instance.new("TextButton", PartCon)
 PartBtn.Size = UDim2.new(0,75,0,26)
 PartBtn.Position = UDim2.new(1,-87,0.5,-13)
 PartBtn.BackgroundColor3 = C.InputBg
-PartBtn.Text = _G.TargetPart
+PartBtn.Text = _G.TargetPart:upper()
 PartBtn.Font = Enum.Font.GothamBold
 PartBtn.TextColor3 = C.MainGreen
 PartBtn.TextSize = 15
@@ -599,7 +653,7 @@ PartBtn.MouseButton1Click:Connect(function()
     PlaySound(Sounds.Click)
     local Cur = table.find(AllParts, _G.TargetPart) or 1
     _G.TargetPart = AllParts[Cur%#AllParts + 1]
-    PartBtn.Text = _G.TargetPart
+    PartBtn.Text = _G.TargetPart:upper()
 end)
 
 local SearchContainer = Instance.new("Frame", Tabs[3])
@@ -611,20 +665,20 @@ local SearchBox = Instance.new("TextBox", SearchContainer)
 SearchBox.Size = UDim2.new(1,-15,1,0)
 SearchBox.Position = UDim2.new(0,8,0,0)
 SearchBox.BackgroundTransparency = 1
-SearchBox.PlaceholderText = "Search Username / DisplayName..."
+SearchBox.PlaceholderText = "SEARCH USERNAME / DISPLAYNAME..."
 SearchBox.TextColor3 = C.White
 SearchBox.Font = Enum.Font.GothamBold
 SearchBox.TextSize = 16
 
 local ListContainer = Instance.new("Frame", Tabs[3])
-ListContainer.Size = UDim2.new(1,-20,0,200)
+ListContainer.Size = UDim2.new(1,-20,0,180)
 ListContainer.Position = UDim2.new(0,10,0,145)
 ListContainer.BackgroundColor3 = C.InputBg
 Instance.new("UICorner", ListContainer).CornerRadius = UDim.new(0.03,0)
 local ListLayout = Instance.new("UIListLayout", ListContainer)
 ListLayout.Padding = UDim.new(0,6)
 
--- ✅ SMART SEARCH: MATCH USERNAME + DISPLAYNAME
+-- SMART SEARCH + GREEN GLOW
 local function AddToPriority(Player)
     if not Player or Player == LocalPlayer or PriorityList[Player.UserId] then return end
     PlaySound(Sounds.Click)
@@ -632,7 +686,6 @@ local function AddToPriority(Player)
     Item.Size = UDim2.new(0.9,0,0,36)
     Item.BackgroundColor3 = C.DarkBG
     Instance.new("UICorner", Item).CornerRadius = UDim.new(0.04,0)
-    -- GREEN GLOW FOR ADDED USERS ✅
     local ItemGlow = Instance.new("UIStroke", Item)
     ItemGlow.Color = C.MainGreen
     ItemGlow.Thickness = 1.5
@@ -642,7 +695,7 @@ local function AddToPriority(Player)
     NameLab.Size = UDim2.new(1,-80,1,0)
     NameLab.Position = UDim2.new(0,10,0,0)
     NameLab.BackgroundTransparency = 1
-    NameLab.Text = Player.DisplayName.." @"..Player.Name
+    NameLab.Text = Player.DisplayName:upper().." @"..Player.Name:upper()
     NameLab.Font = Enum.Font.GothamBold
     NameLab.TextColor3 = C.MainGreen
     NameLab.TextSize = 15
@@ -668,7 +721,6 @@ SearchBox.FocusLost:Connect(function(EnterPressed)
     local Query = SearchBox.Text:lower(); SearchBox.Text = ""
     for _, Player in pairs(Players:GetPlayers()) do
         if Player ~= LocalPlayer then
-            -- MATCH BOTH ✅
             if Player.Name:lower():find(Query,1,true) or Player.DisplayName:lower():find(Query,1,true) then
                 AddToPriority(Player); break
             end
@@ -786,32 +838,39 @@ RunService.RenderStepped:Connect(function(Delta)
         end
     end
 
-    -- ✅ ONLY TRACER TOGGLE CONTROLS BOTH
+    -- ✅ SHOW TRACER CONTROLS BOTH
     local SC = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
     for _,D in pairs(PriorityList) do
         local P = D.Player
         if P and P.Character and P.Character.PrimaryPart then
             local Pos, Vis = Camera:WorldToScreenPoint(P.Character.PrimaryPart.Position)
-            local Show = _G.PriorityESPEnabled and Vis and _G.OnlyTracerEnabled
+            local Show = _G.PriorityESPEnabled and Vis and _G.ShowTracer
             D.Tracer.Visible = Show
             D.NameTag.Visible = Show
             if Show then
                 D.Tracer.From = SC; D.Tracer.To = Vector2.new(Pos.X, Pos.Y)
                 D.NameTag.Position = Vector2.new(Pos.X, Pos.Y-22)
-                D.NameTag.Text = P.DisplayName.." @"..P.Name
+                D.NameTag.Text = P.DisplayName:upper().." @"..P.Name:upper()
             end
         end
     end
+
+    -- ✅ LOCK HUD SAVES POSITION
+    if _G.StatusHudLocked and SavedHudPos then StatusHud.Position = SavedHudPos end
 
     local HasT = CurrentTarget and _G.StatusHudEnabled
     StatusHud.Visible = HasT
     if HasT then
         local H = CurrentTarget.Character:FindFirstChild("Humanoid")
-        HudName.Text = CurrentTarget.DisplayName
-        HudPart.Text = "Target: ".._G.TargetPart
-        HudDist.Text = "Distance: "..math.floor((GetTargetPart(CurrentTarget.Character).Position-Camera.CFrame.Position).Magnitude)
+        HudName.Text = CurrentTarget.DisplayName:upper()
+        HudPart.Text = "TARGET: ".._G.TargetPart:upper()
+        HudDist.Text = "DISTANCE: "..math.floor((GetTargetPart(CurrentTarget.Character).Position-Camera.CFrame.Position).Magnitude)
         pcall(function() Avatar.Image = "rbxthumb://type=AvatarHeadShot&id="..CurrentTarget.UserId.."&w=150&h=150" end)
-        if H then HealthBar.Size=UDim2.new(math.max(0,H.Health)/math.max(1,H.MaxHealth),0,1,0); HudHealthTxt.Text=math.floor(H.Health).." / "..math.floor(H.MaxHealth) end
+        if H then
+            HealthBar.Size = UDim2.new(math.max(0,H.Health)/math.max(1,H.MaxHealth),0,1,0)
+            HudHealthTxt.Text = math.floor(H.Health).." / "..math.floor(H.MaxHealth)
+        end
     end
     MainTargetName.Text = CurrentTarget and CurrentTarget.DisplayName:upper() or "NO TARGET"
 end)
+
