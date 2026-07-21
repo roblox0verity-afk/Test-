@@ -1,3 +1,4 @@
+
 -- ==============================================
 -- UPDATED: LOCK SYSTEM | AVATAR BOTTOM | ALL TEXT UPPERCASE
 -- THEME: NEON GREEN 🟢
@@ -188,7 +189,7 @@ CrossH.Size = UDim2.new(1,0,0,2)
 CrossH.Position = UDim2.new(0,0,0.5,-1)
 CrossH.BackgroundColor3 = C.MainGreen
 
--- 🆕 NEW TOGGLE GUI BOX DESIGN
+-- 🆕 FIXED TOGGLE GUI BOX (NO EMOJIS + PROPER LOGIC)
 local ToggleContainer = Instance.new("Frame")
 ToggleContainer.Size = UDim2.new(0,160,0,70)
 ToggleContainer.Position = UDim2.new(0.02,0,0.02,0)
@@ -215,19 +216,25 @@ LockBtn.Size = UDim2.new(1,-10,0,28)
 LockBtn.Position = UDim2.new(0,5,0,38)
 LockBtn.BackgroundColor3 = C.InputBg
 LockBtn.Font = Enum.Font.GothamBold
-LockBtn.Text = "🔓 UNLOCK"
+LockBtn.Text = "UNLOCK"
 LockBtn.TextColor3 = C.MainGreen
 LockBtn.TextSize = 14
 Instance.new("UICorner", LockBtn).CornerRadius = UDim.new(0.04,0)
 
--- LOCK/UNLOCK + DRAG SYSTEM
+-- LOCK/UNLOCK LOGIC
 LockBtn.MouseButton1Click:Connect(function()
     PlaySound(Sounds.Click)
     GuiDraggable = not GuiDraggable
-    LockBtn.Text = GuiDraggable and "🔒 LOCK" or "🔓 UNLOCK"
-    LockBtn.TextColor3 = GuiDraggable and Color3.fromHex("#FF5555") or C.MainGreen
+    if GuiDraggable then
+        LockBtn.Text = "LOCK"
+        LockBtn.TextColor3 = Color3.fromHex("#FF5555")
+    else
+        LockBtn.Text = "UNLOCK"
+        LockBtn.TextColor3 = C.MainGreen
+    end
 end)
 
+-- ✅ DRAG WORKS ONLY WHEN UNLOCKED
 ToggleContainer.InputBegan:Connect(function(I)
     if GuiDraggable and I.UserInputType == Enum.UserInputType.MouseButton1 then
         GuiDrag = true
@@ -243,20 +250,22 @@ UserInputService.InputChanged:Connect(function(I)
 end)
 UserInputService.InputEnded:Connect(function() GuiDrag = false end)
 
--- OPEN/CLOSE MAIN MENU
-ToggleContainer.MouseButton2Click:Connect(function()
-    PlaySound(Sounds.ToggleGUI)
-    MenuOpen = not MenuOpen
-    if MenuOpen then
-        Main.Visible = true
-        TweenService:Create(Main, Anim.Open, {Size = FULL_SIZE}):Play()
-        task.wait(0.1)
-        TweenService:Create(InnerBorder, Anim.Normal, {Transparency = 0}):Play()
-    else
-        TweenService:Create(InnerBorder, Anim.Close, {Transparency = 1}):Play()
-        TweenService:Create(Main, Anim.Close, {Size = UDim2.new(0,0,0,0)}):Play()
-        task.wait(0.4)
-        Main.Visible = false
+-- ✅ LEFT CLICK TO OPEN/CLOSE MAIN MENU (NO MORE RIGHT CLICK)
+ToggleContainer.MouseButton1Click:Connect(function()
+    if not GuiDrag then -- only run if NOT dragging
+        PlaySound(Sounds.ToggleGUI)
+        MenuOpen = not MenuOpen
+        if MenuOpen then
+            Main.Visible = true
+            TweenService:Create(Main, Anim.Open, {Size = FULL_SIZE}):Play()
+            task.wait(0.1)
+            TweenService:Create(InnerBorder, Anim.Normal, {Transparency = 0}):Play()
+        else
+            TweenService:Create(InnerBorder, Anim.Close, {Transparency = 1}):Play()
+            TweenService:Create(Main, Anim.Close, {Size = UDim2.new(0,0,0,0)}):Play()
+            task.wait(0.4)
+            Main.Visible = false
+        end
     end
 end)
 
@@ -297,7 +306,21 @@ CloseBtn.Text = "✕"
 CloseBtn.Font = Enum.Font.GothamBlack
 CloseBtn.TextColor3 = C.MainGreen
 CloseBtn.TextSize = 28
-CloseBtn.MouseButton1Click:Connect(function() if MenuOpen then ToggleContainer:MouseButton2Click() end end)
+CloseBtn.MouseButton1Click:Connect(function()
+    PlaySound(Sounds.Click)
+    MenuOpen = not MenuOpen
+    if MenuOpen then
+        Main.Visible = true
+        TweenService:Create(Main, Anim.Open, {Size = FULL_SIZE}):Play()
+        task.wait(0.1)
+        TweenService:Create(InnerBorder, Anim.Normal, {Transparency = 0}):Play()
+    else
+        TweenService:Create(InnerBorder, Anim.Close, {Transparency = 1}):Play()
+        TweenService:Create(Main, Anim.Close, {Size = UDim2.new(0,0,0,0)}):Play()
+        task.wait(0.4)
+        Main.Visible = false
+    end
+end)
 
 -- GREEN SEPARATOR LINE
 local SepLine = Instance.new("Frame", Main)
@@ -873,4 +896,3 @@ RunService.RenderStepped:Connect(function(Delta)
     end
     MainTargetName.Text = CurrentTarget and CurrentTarget.DisplayName:upper() or "NO TARGET"
 end)
-
