@@ -1,7 +1,6 @@
 -- ==============================================
--- UPDATED: TAB 3 ESP TOGGLES | PRIORITY GLOW
--- FIXED: PART SELECTION | 360° AIMLOCK ADDED
--- MOVED PART SELECTOR TO TAB 2 | NO MORE HEAD OVERRIDE
+-- UPDATED: TAB REORDER | SMART SEARCH | AUTO SHOOT SLIDERS | GUI ENHANCE
+-- THEME: NEON GREEN 🟢
 -- ==============================================
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -74,12 +73,12 @@ _G.AimSpeed = 75
 _G.PredictionEnabled = true
 _G.AimPrediction = 65
 _G.PriorityESPEnabled = true
-_G.TracerEnabled = true
-_G.NameTagEnabled = true
+_G.OnlyTracerEnabled = true
 _G.ThreeSixtyEnabled = false
 _G.TargetPart = "Head"
-_G.AutoShootMinDist = 1
+_G.AutoShootMinDist = 5
 _G.AutoShootMaxDist = 150
+_G.AutoShootDelay = 0.1
 
 local AllParts = {"Head", "Torso", "Left Arm", "Right Arm", "Left Leg", "Right Leg"}
 local LastRandomChange = 0
@@ -124,25 +123,14 @@ local function IsValidTarget(Char)
     return true
 end
 
--- ✅ FIXED PART DETECTION
 local function GetTargetPart(Char)
     if not Char then return Char:FindFirstChild("Head") end
     local Sel = _G.TargetPart
-    if Sel == "Torso" then
-        return Char:FindFirstChild("Torso") or Char:FindFirstChild("UpperTorso") or Char:FindFirstChild("LowerTorso") or Char:FindFirstChild("Head")
-    end
-    if Sel == "Left Arm" then
-        return Char:FindFirstChild("Left Arm") or Char:FindFirstChild("LeftUpperArm") or Char:FindFirstChild("LeftHand") or Char:FindFirstChild("Head")
-    end
-    if Sel == "Right Arm" then
-        return Char:FindFirstChild("Right Arm") or Char:FindFirstChild("RightUpperArm") or Char:FindFirstChild("RightHand") or Char:FindFirstChild("Head")
-    end
-    if Sel == "Left Leg" then
-        return Char:FindFirstChild("Left Leg") or Char:FindFirstChild("LeftUpperLeg") or Char:FindFirstChild("LeftFoot") or Char:FindFirstChild("Head")
-    end
-    if Sel == "Right Leg" then
-        return Char:FindFirstChild("Right Leg") or Char:FindFirstChild("RightUpperLeg") or Char:FindFirstChild("RightFoot") or Char:FindFirstChild("Head")
-    end
+    if Sel == "Torso" then return Char:FindFirstChild("Torso") or Char:FindFirstChild("UpperTorso") or Char:FindFirstChild("LowerTorso") or Char:FindFirstChild("Head") end
+    if Sel == "Left Arm" then return Char:FindFirstChild("Left Arm") or Char:FindFirstChild("LeftUpperArm") or Char:FindFirstChild("LeftHand") or Char:FindFirstChild("Head") end
+    if Sel == "Right Arm" then return Char:FindFirstChild("Right Arm") or Char:FindFirstChild("RightUpperArm") or Char:FindFirstChild("RightHand") or Char:FindFirstChild("Head") end
+    if Sel == "Left Leg" then return Char:FindFirstChild("Left Leg") or Char:FindFirstChild("LeftUpperLeg") or Char:FindFirstChild("LeftFoot") or Char:FindFirstChild("Head") end
+    if Sel == "Right Leg" then return Char:FindFirstChild("Right Leg") or Char:FindFirstChild("RightUpperLeg") or Char:FindFirstChild("RightFoot") or Char:FindFirstChild("Head") end
     return Char:FindFirstChild(Sel) or Char:FindFirstChild("Head")
 end
 
@@ -161,15 +149,16 @@ SG.ResetOnSpawn = false
 SG.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 SG.DisplayOrder = 9999
 
-local FULL_SIZE = UDim2.new(0,520,0,470)
+local FULL_SIZE = UDim2.new(0,520,0,510)
 local Main = Instance.new("Frame")
 Main.Size = UDim2.new(0,0,0,0)
-Main.Position = UDim2.new(0.5,-260,0.5,-235)
+Main.Position = UDim2.new(0.5,-260,0.5,-255)
 Main.BackgroundColor3 = C.DarkBG
+Main.BackgroundTransparency = 0.05
 Main.Visible = false
 Main.ClipsDescendants = true
 Main.Parent = SG
-Instance.new("UICorner", Main).CornerRadius = UDim.new(0.03,0)
+Instance.new("UICorner", Main).CornerRadius = UDim.new(0.035,0)
 
 local InnerBorder = Instance.new("UIStroke", Main)
 InnerBorder.Color = C.MainGreen
@@ -178,8 +167,8 @@ InnerBorder.Transparency = 1
 
 local Glow = Instance.new("UIStroke", Main)
 Glow.Color = C.MainGreen
-Glow.Thickness = 6
-Glow.Transparency = 0.8
+Glow.Thickness = 8
+Glow.Transparency = 0.85
 TweenService:Create(Glow, Anim.Slow, {Transparency = 0.5}):Play()
 
 local Crosshair = Instance.new("Frame", Main)
@@ -278,6 +267,25 @@ CloseBtn.TextColor3 = C.MainGreen
 CloseBtn.TextSize = 28
 CloseBtn.MouseButton1Click:Connect(function() if MenuOpen then ToggleBtn:Click() end end)
 
+-- GREEN SEPARATOR LINE
+local SepLine = Instance.new("Frame", Main)
+SepLine.Size = UDim2.new(1,-20,0,2)
+SepLine.Position = UDim2.new(0,10,0,57)
+SepLine.BackgroundColor3 = C.MainGreen
+SepLine.BackgroundTransparency = 0.3
+TweenService:Create(SepLine, Anim.Slow, {BackgroundTransparency = 0.1}):Play()
+
+-- FOOTER
+local Footer = Instance.new("TextLabel", Main)
+Footer.Size = UDim2.new(1,-20,0,20)
+Footer.Position = UDim2.new(0,10,1,-25)
+Footer.BackgroundTransparency = 1
+Footer.Text = "----------------------->  Avatar - "..LocalPlayer.Name
+Footer.Font = Enum.Font.GothamMedium
+Footer.TextColor3 = C.MainGreen
+Footer.TextSize = 12
+Footer.TextXAlignment = Enum.TextXAlignment.Left
+
 -- STATUS HUD
 local StatusHud = Instance.new("Frame")
 StatusHud.Size = UDim2.new(0,240,0,130)
@@ -363,17 +371,18 @@ UserInputService.InputChanged:Connect(function(I)
 end)
 UserInputService.InputEnded:Connect(function() DragHud = nil end)
 local SideBar = Instance.new("Frame", Main)
-SideBar.Size = UDim2.new(0,65,1,-52)
-SideBar.Position = UDim2.new(0,0,0,52)
+SideBar.Size = UDim2.new(0,65,1,-82)
+SideBar.Position = UDim2.new(0,0,0,62)
 SideBar.BackgroundTransparency = 0.85
 SideBar.BackgroundColor3 = C.SideBG
 SideBar.ZIndex = 10
 local Content = Instance.new("Frame", Main)
-Content.Size = UDim2.new(1,-75,1,-57)
-Content.Position = UDim2.new(0,70,0,57)
+Content.Size = UDim2.new(1,-75,1,-87)
+Content.Position = UDim2.new(0,70,0,62)
 Content.BackgroundTransparency = 1
 Content.ZIndex = 10
 
+-- TAB ORDER: 1=AIM | 2=EXTRA | 3=PRIORITY
 local Tabs = {}
 for i=1,3 do
     Tabs[i] = Instance.new("Frame", Content)
@@ -414,6 +423,57 @@ local function MakeToggle(Name, PosY, Key, Tab)
             TweenService:Create(Knob, Anim.Fast, {Position = _G[Key] and UDim2.new(1,-21,0.5,-10) or UDim2.new(0,1,0.5,-10)}):Play()
         end
     end)
+end
+
+local function MakeSlider(Name, PosY, ValKey, Min, Max, Def, Suffix, Tab)
+    Tab = Tab or 1
+    local Con = Instance.new("Frame", Tabs[Tab])
+    Con.Size = UDim2.new(1,-20,0,58)
+    Con.Position = UDim2.new(0,10,0,PosY)
+    Con.BackgroundTransparency = 0.92
+    Con.BackgroundColor3 = C.DarkBG
+    local Lab = Instance.new("TextLabel", Con)
+    Lab.Size = UDim2.new(1,-65,0,22)
+    Lab.Position = UDim2.new(0,12,0,5)
+    Lab.BackgroundTransparency = 1
+    Lab.Text = Name.."."
+    Lab.Font = Enum.Font.GothamBold
+    Lab.TextColor3 = Color3.new(0.95,0.95,0.95)
+    Lab.TextSize = 17
+    local ValLab = Instance.new("TextLabel", Con)
+    ValLab.Size = UDim2.new(0,45,0,22)
+    ValLab.Position = UDim2.new(1,-55,0,5)
+    ValLab.BackgroundTransparency = 1
+    ValLab.Text = Def..Suffix
+    ValLab.TextColor3 = C.MainGreen
+    ValLab.TextSize = 15
+    local Track = Instance.new("Frame", Con)
+    Track.Size = UDim2.new(1,-25,0,5)
+    Track.Position = UDim2.new(0,12,0,38)
+    Track.BackgroundColor3 = Color3.fromHex("#333333")
+    Instance.new("UICorner", Track).CornerRadius = UDim.new(1,0)
+    local Fill = Instance.new("Frame", Track)
+    Fill.Size = UDim2.new((Def-Min)/(Max-Min),0,1,0)
+    Fill.BackgroundColor3 = C.MainGreen
+    Instance.new("UICorner", Fill).CornerRadius = UDim.new(1,0)
+    local SliderKnob = Instance.new("Frame", Track)
+    SliderKnob.Size = UDim2.new(0,12,0,12)
+    SliderKnob.Position = UDim2.new((Def-Min)/(Max-Min),-6,0.5,-6)
+    SliderKnob.BackgroundColor3 = C.MainGreen
+    Instance.new("UICorner", SliderKnob).CornerRadius = UDim.new(1,0)
+    _G[ValKey] = Def; local Drag = false
+    Track.InputBegan:Connect(function(I) if I.UserInputType == Enum.UserInputType.MouseButton1 or I.UserInputType == Enum.UserInputType.Touch then Drag = true end end)
+    UserInputService.InputChanged:Connect(function(I)
+        if Drag then
+            local RelX = I.Position.X - Track.AbsolutePosition.X
+            local Ratio = Math.clamp(RelX / Track.AbsoluteSize.X, 0, 1)
+            _G[ValKey] = tonumber(string.format("%.2f", Min + (Max - Min) * Ratio))
+            ValLab.Text = tostring(_G[ValKey])..Suffix
+            Fill.Size = UDim2.new(Ratio,0,1,0)
+            SliderKnob.Position = UDim2.new(Ratio,-6,0.5,-6)
+        end
+    end)
+    UserInputService.InputEnded:Connect(function() Drag = false end)
 end
 
 local function MakeFOVSlider(Name, PosY, ToggleKey, ValKey, Min, Max, Def)
@@ -477,102 +537,42 @@ local function MakeFOVSlider(Name, PosY, ToggleKey, ValKey, Min, Max, Def)
             local Ratio = Math.clamp(RelX / Track.AbsoluteSize.X, 0, 1)
             _G[ValKey] = Math.floor(Min + (Max - Min) * Ratio)
             ValLab.Text = _G[ValKey].."px"
-            Fill.Size = UDim2.new(Ratio, 0, 1, 0)
-            SliderKnob.Position = UDim2.new(Ratio, -6, 0.5, -6)
+            Fill.Size = UDim2.new(Ratio,0,1,0)
+            SliderKnob.Position = UDim2.new(Ratio,-6,0.5,-6)
             FOVCircle.Radius = _G[ValKey]
         end
     end)
     UserInputService.InputEnded:Connect(function() Drag = false end)
 end
 
-local function MakeToggleSlider(Name, PosY, ToggleKey, ValKey, Min, Max, Def, Suffix)
-    Suffix = Suffix or ""
-    local Con = Instance.new("Frame", Tabs[1])
-    Con.Size = UDim2.new(1,-20,0,58)
-    Con.Position = UDim2.new(0,10,0,PosY)
-    Con.BackgroundTransparency = 0.92
-    Con.BackgroundColor3 = C.DarkBG
-    local Bg = Instance.new("Frame", Con)
-    Bg.Size = UDim2.new(0,46,0,24)
-    Bg.Position = UDim2.new(0,8,0,5)
-    Bg.BackgroundColor3 = _G[ToggleKey] and C.MainGreen or C.ToggleOffBg
-    Instance.new("UICorner", Bg).CornerRadius = UDim.new(1,0)
-    local Knob = Instance.new("Frame", Bg)
-    Knob.Size = UDim2.new(0,20,0,20)
-    Knob.Position = _G[ToggleKey] and UDim2.new(1,-21,0.5,-10) or UDim2.new(0,1,0.5,-10)
-    Knob.BackgroundColor3 = C.ToggleOffKnob
-    Instance.new("UICorner", Knob).CornerRadius = UDim.new(1,0)
-    local Lab = Instance.new("TextLabel", Con)
-    Lab.Size = UDim2.new(1,-65,0,22)
-    Lab.Position = UDim2.new(0,62,0,5)
-    Lab.BackgroundTransparency = 1
-    Lab.Text = Name.."."
-    Lab.Font = Enum.Font.GothamBold
-    Lab.TextColor3 = Color3.new(0.95,0.95,0.95)
-    Lab.TextSize = 17
-    local ValLab = Instance.new("TextLabel", Con)
-    ValLab.Size = UDim2.new(0,45,0,22)
-    ValLab.Position = UDim2.new(1,-55,0,5)
-    ValLab.BackgroundTransparency = 1
-    ValLab.Text = Def..Suffix
-    ValLab.TextColor3 = C.MainGreen
-    ValLab.TextSize = 15
-    local Track = Instance.new("Frame", Con)
-    Track.Size = UDim2.new(1,-25,0,5)
-    Track.Position = UDim2.new(0,12,0,38)
-    Track.BackgroundColor3 = Color3.fromHex("#333333")
-    Instance.new("UICorner", Track).CornerRadius = UDim.new(1,0)
-    local Fill = Instance.new("Frame", Track)
-    Fill.Size = UDim2.new((Def-Min)/(Max-Min),0,1,0)
-    Fill.BackgroundColor3 = C.MainGreen
-    Instance.new("UICorner", Fill).CornerRadius = UDim.new(1,0)
-    local SliderKnob = Instance.new("Frame", Track)
-    SliderKnob.Size = UDim2.new(0,12,0,12)
-    SliderKnob.Position = UDim2.new((Def-Min)/(Max-Min),-6,0.5,-6)
-    SliderKnob.BackgroundColor3 = C.MainGreen
-    Instance.new("UICorner", SliderKnob).CornerRadius = UDim.new(1,0)
-    _G[ValKey] = Def; local Drag = false
-    Bg.InputBegan:Connect(function(I)
-        if I.UserInputType == Enum.UserInputType.MouseButton1 or I.UserInputType == Enum.UserInputType.Touch then
-            _G[ToggleKey] = not _G[ToggleKey]; PlaySound(Sounds.Click)
-            TweenService:Create(Bg, Anim.Fast, {BackgroundColor3 = _G[ToggleKey] and C.MainGreen or C.ToggleOffBg}):Play()
-            TweenService:Create(Knob, Anim.Fast, {Position = _G[ToggleKey] and UDim2.new(1,-21,0.5,-10) or UDim2.new(0,1,0.5,-10)}):Play()
-        end
-    end)
-    Track.InputBegan:Connect(function(I) if I.UserInputType == Enum.UserInputType.MouseButton1 or I.UserInputType == Enum.UserInputType.Touch then Drag = true end end)
-    UserInputService.InputChanged:Connect(function(I)
-        if Drag and _G[ToggleKey] and (I.UserInputType == Enum.UserInputType.MouseMovement or I.UserInputType == Enum.UserInputType.Touch) then
-            local RelX = I.Position.X - Track.AbsolutePosition.X
-            local Ratio = Math.clamp(RelX / Track.AbsoluteSize.X, 0, 1)
-            _G[ValKey] = Math.floor(Min + (Max - Min) * Ratio)
-            ValLab.Text = tostring(_G[ValKey])..Suffix
-            Fill.Size = UDim2.new(Ratio, 0, 1, 0)
-            SliderKnob.Position = UDim2.new(Ratio, -6, 0.5, -6)
-        end
-    end)
-    UserInputService.InputEnded:Connect(function() Drag = false end)
-end
+-- TAB 1: AIM SETTINGS
+MakeToggle("Aimlock", 20, "AimlockEnabled", 1)
+MakeToggle("Show Status HUD", 67, "StatusHudEnabled", 1)
+MakeToggle("Wall Check", 114, "WallCheckEnabled", 1)
+MakeToggle("360° Aimlock", 161, "ThreeSixtyEnabled", 1)
+MakeFOVSlider("FOV Size", 208, "FOVEnabled", "FOVSize", 50, 800, 220)
+MakeSlider("Aim Speed", 275, "AimSpeed", 1, 100, 75, "", 1)
+MakeSlider("Prediction", 340, "AimPrediction", 0, 100, 65, "", 1)
 
--- TAB 1
-MakeToggle("Aimlock", 45, "AimlockEnabled")
-MakeToggle("Show Status HUD", 92, "StatusHudEnabled")
-MakeToggle("Wall Check", 139, "WallCheckEnabled")
-MakeToggle("360° Aimlock", 186, "ThreeSixtyEnabled")
-MakeFOVSlider("FOV Size", 233, "FOVEnabled", "FOVSize", 50, 800, 220)
-MakeToggleSlider("Aim Speed", 300, "AimSpeedEnabled", "AimSpeed", 1, 100, 75, "")
-MakeToggleSlider("Prediction", 365, "PredictionEnabled", "AimPrediction", 0, 100, 65, "")
+-- TAB 2: EXTRA / AUTO SHOOT
+MakeToggle("Auto-Shoot", 10, "AutoShootEnabled", 2)
+MakeToggle("Random Aim Part", 57, "RandomPartEnabled", 2)
+MakeToggle("Auto Jump On Target", 104, "AutoJumpEnabled", 2)
+MakeToggle("Only Tracer", 151, "OnlyTracerEnabled", 2) -- COMBINED ✅
+MakeSlider("Auto Shoot Distance", 198, "AutoShootMaxDist", 10, 300, 150, "", 2)
+MakeSlider("Fire Delay", 265, "AutoShootDelay", 0.01, 1, 0.1, "s", 2)
 
--- TAB 2
-local PriorityHeader = Instance.new("TextLabel", Tabs[2])
+-- TAB 3: PRIORITY & TARGET PART
+local PriorityHeader = Instance.new("TextLabel", Tabs[3])
 PriorityHeader.Size = UDim2.new(1,0,0,30)
 PriorityHeader.Position = UDim2.new(0,10,0,5)
 PriorityHeader.BackgroundTransparency = 1
-PriorityHeader.Text = "PRIORITY & TARGET PART"
+PriorityHeader.Text = "🎯 PRIORITY LIST"
 PriorityHeader.Font = Enum.Font.GothamBlack
 PriorityHeader.TextColor3 = C.MainGreen
 PriorityHeader.TextSize = 19
 
-local PartCon = Instance.new("Frame", Tabs[2])
+local PartCon = Instance.new("Frame", Tabs[3])
 PartCon.Size = UDim2.new(1,-20,0,38)
 PartCon.Position = UDim2.new(0,10,0,45)
 PartCon.BackgroundColor3 = Color3.fromHex("#0A0F0D")
@@ -602,7 +602,7 @@ PartBtn.MouseButton1Click:Connect(function()
     PartBtn.Text = _G.TargetPart
 end)
 
-local SearchContainer = Instance.new("Frame", Tabs[2])
+local SearchContainer = Instance.new("Frame", Tabs[3])
 SearchContainer.Size = UDim2.new(1,-20,0,40)
 SearchContainer.Position = UDim2.new(0,10,0,95)
 SearchContainer.BackgroundColor3 = C.InputBg
@@ -611,18 +611,20 @@ local SearchBox = Instance.new("TextBox", SearchContainer)
 SearchBox.Size = UDim2.new(1,-15,1,0)
 SearchBox.Position = UDim2.new(0,8,0,0)
 SearchBox.BackgroundTransparency = 1
-SearchBox.PlaceholderText = "Enter name..."
+SearchBox.PlaceholderText = "Search Username / DisplayName..."
 SearchBox.TextColor3 = C.White
 SearchBox.Font = Enum.Font.GothamBold
 SearchBox.TextSize = 16
-local ListContainer = Instance.new("Frame", Tabs[2])
-ListContainer.Size = UDim2.new(1,-20,0,220)
-ListContainer.Position = UDim2.new(0,10,0,140)
+
+local ListContainer = Instance.new("Frame", Tabs[3])
+ListContainer.Size = UDim2.new(1,-20,0,200)
+ListContainer.Position = UDim2.new(0,10,0,145)
 ListContainer.BackgroundColor3 = C.InputBg
 Instance.new("UICorner", ListContainer).CornerRadius = UDim.new(0.03,0)
 local ListLayout = Instance.new("UIListLayout", ListContainer)
 ListLayout.Padding = UDim.new(0,6)
 
+-- ✅ SMART SEARCH: MATCH USERNAME + DISPLAYNAME
 local function AddToPriority(Player)
     if not Player or Player == LocalPlayer or PriorityList[Player.UserId] then return end
     PlaySound(Sounds.Click)
@@ -630,7 +632,7 @@ local function AddToPriority(Player)
     Item.Size = UDim2.new(0.9,0,0,36)
     Item.BackgroundColor3 = C.DarkBG
     Instance.new("UICorner", Item).CornerRadius = UDim.new(0.04,0)
-    -- ✅ GREEN GLOW FOR ADDED USERS
+    -- GREEN GLOW FOR ADDED USERS ✅
     local ItemGlow = Instance.new("UIStroke", Item)
     ItemGlow.Color = C.MainGreen
     ItemGlow.Thickness = 1.5
@@ -640,10 +642,10 @@ local function AddToPriority(Player)
     NameLab.Size = UDim2.new(1,-80,1,0)
     NameLab.Position = UDim2.new(0,10,0,0)
     NameLab.BackgroundTransparency = 1
-    NameLab.Text = Player.Name.."."
+    NameLab.Text = Player.DisplayName.." @"..Player.Name
     NameLab.Font = Enum.Font.GothamBold
     NameLab.TextColor3 = C.MainGreen
-    NameLab.TextSize = 16
+    NameLab.TextSize = 15
     local RemoveBtn = Instance.new("TextButton", Item)
     RemoveBtn.Size = UDim2.new(0,22,0,22)
     RemoveBtn.Position = UDim2.new(1,-28,0.5,-11)
@@ -660,20 +662,19 @@ local function AddToPriority(Player)
         Data.Tracer:Remove(); Data.NameTag:Remove(); Item:Destroy(); PriorityList[Player.UserId] = nil
     end)
 end
+
 SearchBox.FocusLost:Connect(function(EnterPressed)
     if not EnterPressed or SearchBox.Text == "" then return end
     local Query = SearchBox.Text:lower(); SearchBox.Text = ""
     for _, Player in pairs(Players:GetPlayers()) do
-        if Player ~= LocalPlayer and Player.Name:lower():find(Query, 1, true) then AddToPriority(Player); break end
+        if Player ~= LocalPlayer then
+            -- MATCH BOTH ✅
+            if Player.Name:lower():find(Query,1,true) or Player.DisplayName:lower():find(Query,1,true) then
+                AddToPriority(Player); break
+            end
+        end
     end
 end)
-
--- ✅ UPDATED TAB 3 – NEW ESP TOGGLES
-MakeToggle("Auto-Shoot", 10, "AutoShootEnabled", 3)
-MakeToggle("Random Aim Part", 60, "RandomPartEnabled", 3)
-MakeToggle("Auto Jump On Target", 110, "AutoJumpEnabled", 3)
-MakeToggle("Show Tracer", 160, "TracerEnabled", 3)
-MakeToggle("Show Name Tags", 210, "NameTagEnabled", 3)
 
 -- TAB SWITCHER
 local TabIndicator = Instance.new("Frame",SideBar)
@@ -681,7 +682,7 @@ TabIndicator.Size = UDim2.new(0,5,0,40)
 TabIndicator.Position = UDim2.new(0,5,0.1,0)
 TabIndicator.BackgroundColor3 = C.MainGreen
 Instance.new("UICorner",TabIndicator).CornerRadius = UDim.new(1,0)
-local TabIcons = {"⁍", "⌖", "⏣"}
+local TabIcons = {"⁍", "⚙", "⌖"}
 for i=1,3 do
     local Btn = Instance.new("TextButton",SideBar)
     Btn.Size = UDim2.new(1,-10,0,48)
@@ -712,7 +713,7 @@ local function RunAutoShoot()
     if not _G.AutoShootEnabled or not _G.AimlockEnabled then return end
     if not CurrentTarget then return end
     if IsPlayerRagdolled() then return end
-    if os.clock() - LastShootTime < 0.05 then return end
+    if os.clock() - LastShootTime < _G.AutoShootDelay then return end
     local TChar = CurrentTarget.Character
     if not TChar or not IsValidTarget(TChar) then return end
     local AimPart = GetTargetPart(TChar)
@@ -785,19 +786,19 @@ RunService.RenderStepped:Connect(function(Delta)
         end
     end
 
+    -- ✅ ONLY TRACER TOGGLE CONTROLS BOTH
     local SC = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
     for _,D in pairs(PriorityList) do
         local P = D.Player
         if P and P.Character and P.Character.PrimaryPart then
             local Pos, Vis = Camera:WorldToScreenPoint(P.Character.PrimaryPart.Position)
-            local Show = _G.PriorityESPEnabled and Vis
-            -- ✅ USE NEW TOGGLES
-            D.Tracer.Visible = Show and _G.TracerEnabled
-            D.NameTag.Visible = Show and _G.NameTagEnabled
+            local Show = _G.PriorityESPEnabled and Vis and _G.OnlyTracerEnabled
+            D.Tracer.Visible = Show
+            D.NameTag.Visible = Show
             if Show then
                 D.Tracer.From = SC; D.Tracer.To = Vector2.new(Pos.X, Pos.Y)
                 D.NameTag.Position = Vector2.new(Pos.X, Pos.Y-22)
-                D.NameTag.Text = P.Name
+                D.NameTag.Text = P.DisplayName.." @"..P.Name
             end
         end
     end
@@ -806,11 +807,11 @@ RunService.RenderStepped:Connect(function(Delta)
     StatusHud.Visible = HasT
     if HasT then
         local H = CurrentTarget.Character:FindFirstChild("Humanoid")
-        HudName.Text = CurrentTarget.Name
+        HudName.Text = CurrentTarget.DisplayName
         HudPart.Text = "Target: ".._G.TargetPart
         HudDist.Text = "Distance: "..math.floor((GetTargetPart(CurrentTarget.Character).Position-Camera.CFrame.Position).Magnitude)
         pcall(function() Avatar.Image = "rbxthumb://type=AvatarHeadShot&id="..CurrentTarget.UserId.."&w=150&h=150" end)
         if H then HealthBar.Size=UDim2.new(math.max(0,H.Health)/math.max(1,H.MaxHealth),0,1,0); HudHealthTxt.Text=math.floor(H.Health).." / "..math.floor(H.MaxHealth) end
     end
-    MainTargetName.Text = CurrentTarget and CurrentTarget.Name:upper() or "NO TARGET"
+    MainTargetName.Text = CurrentTarget and CurrentTarget.DisplayName:upper() or "NO TARGET"
 end)
