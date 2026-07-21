@@ -1,4 +1,5 @@
 -- ==============================================
+-- UPDATED: TAB 3 ESP TOGGLES | PRIORITY GLOW
 -- FIXED: PART SELECTION | 360° AIMLOCK ADDED
 -- MOVED PART SELECTOR TO TAB 2 | NO MORE HEAD OVERRIDE
 -- ==============================================
@@ -73,6 +74,8 @@ _G.AimSpeed = 75
 _G.PredictionEnabled = true
 _G.AimPrediction = 65
 _G.PriorityESPEnabled = true
+_G.TracerEnabled = true
+_G.NameTagEnabled = true
 _G.ThreeSixtyEnabled = false
 _G.TargetPart = "Head"
 _G.AutoShootMinDist = 1
@@ -627,13 +630,19 @@ local function AddToPriority(Player)
     Item.Size = UDim2.new(0.9,0,0,36)
     Item.BackgroundColor3 = C.DarkBG
     Instance.new("UICorner", Item).CornerRadius = UDim.new(0.04,0)
+    -- ✅ GREEN GLOW FOR ADDED USERS
+    local ItemGlow = Instance.new("UIStroke", Item)
+    ItemGlow.Color = C.MainGreen
+    ItemGlow.Thickness = 1.5
+    ItemGlow.Transparency = 0.3
+    TweenService:Create(ItemGlow, Anim.Slow, {Transparency = 0.1}):Play()
     local NameLab = Instance.new("TextLabel", Item)
     NameLab.Size = UDim2.new(1,-80,1,0)
     NameLab.Position = UDim2.new(0,10,0,0)
     NameLab.BackgroundTransparency = 1
     NameLab.Text = Player.Name.."."
     NameLab.Font = Enum.Font.GothamBold
-    NameLab.TextColor3 = C.White
+    NameLab.TextColor3 = C.MainGreen
     NameLab.TextSize = 16
     local RemoveBtn = Instance.new("TextButton", Item)
     RemoveBtn.Size = UDim2.new(0,22,0,22)
@@ -659,10 +668,12 @@ SearchBox.FocusLost:Connect(function(EnterPressed)
     end
 end)
 
--- TAB 3
-MakeToggle("Auto-Shoot", 20, "AutoShootEnabled", 3)
-MakeToggle("Random Aim Part", 70, "RandomPartEnabled", 3)
-MakeToggle("Auto Jump On Target", 120, "AutoJumpEnabled", 3)
+-- ✅ UPDATED TAB 3 – NEW ESP TOGGLES
+MakeToggle("Auto-Shoot", 10, "AutoShootEnabled", 3)
+MakeToggle("Random Aim Part", 60, "RandomPartEnabled", 3)
+MakeToggle("Auto Jump On Target", 110, "AutoJumpEnabled", 3)
+MakeToggle("Show Tracer", 160, "TracerEnabled", 3)
+MakeToggle("Show Name Tags", 210, "NameTagEnabled", 3)
 
 -- TAB SWITCHER
 local TabIndicator = Instance.new("Frame",SideBar)
@@ -780,7 +791,9 @@ RunService.RenderStepped:Connect(function(Delta)
         if P and P.Character and P.Character.PrimaryPart then
             local Pos, Vis = Camera:WorldToScreenPoint(P.Character.PrimaryPart.Position)
             local Show = _G.PriorityESPEnabled and Vis
-            D.Tracer.Visible = Show; D.NameTag.Visible = Show
+            -- ✅ USE NEW TOGGLES
+            D.Tracer.Visible = Show and _G.TracerEnabled
+            D.NameTag.Visible = Show and _G.NameTagEnabled
             if Show then
                 D.Tracer.From = SC; D.Tracer.To = Vector2.new(Pos.X, Pos.Y)
                 D.NameTag.Position = Vector2.new(Pos.X, Pos.Y-22)
